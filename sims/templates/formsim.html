@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <form method="post" action="{% url 'myapp:proceso_list' %}">
+    {% csrf_token %}
+    <label for="sector">Sector:</label>
+    <select id="sector" name="sector">
+      <option value="">---------</option>
+      {% for sector in sectores %}
+        <option value="{{ sector.pk }}">{{ sector.sector }}</option>
+      {% endfor %}
+    </select>
+    <br><br>
+    <label for="aplicacion">Aplicación:</label>
+    <select id="aplicacion" name="aplicacion">
+      <option value="">---------</option>
+    </select>
+    <br><br>
+    <label for="procesos">Procesos:</label>
+    <br>
+    {% for aplicacion in aplicaciones %}
+      <input type="checkbox" name="procesos" value="{{ aplicacion.pk }}"> {{ aplicacion }}
+      <br>
+    {% endfor %}
+    <br>
+    <input type="submit" value="Submit">
+  </form>
+
+  <script src="https://code.jquery.com/jquery-3.6.4.js"></script>
+  <script src="{% static 'js/smart-selects.js' %}"></script>
+
+  <script type="text/javascript">
+    $(document).ready(function() {
+      $('#id_sector').change(function() {
+        var sectorId = $(this).val();
+        if (sectorId) {
+          $.ajax({
+            url: '{% url "myapp:aplicacion_dropdown" %}',
+            data: {'sector': sectorId},
+            success: function(data) {
+              $('#id_aplicacion').html(data);
+            }
+          });
+        } else {
+          $('#id_aplicacion').empty();
+        }
+      });
+    });
+  </script>
+{% endblock %}
