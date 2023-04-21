@@ -1,0 +1,330 @@
+body {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+    font-family: 'Rubik', sans-serif !important;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+.nav{
+    box-shadow:none !important;
+    height: 8vh;
+}
+nav ul a{
+    color: #000000 !important;
+    font-weight: bold !important;
+    font-size: 1rem !important;
+    letter-spacing: 0.125em;
+}
+
+nav ul a:hover{
+    color: #ffd700 !important;
+    background-color: #eceff1 !important;
+}
+
+a{
+  border-color: #ffd700 !important;
+  color: #000000 !important;
+  font-size: 1rem !important; 
+}
+
+a:hover{
+    color: #ffd700 !important;
+    border-color: #ffd700 !important;
+}
+
+.btn, .btn-large, .btn-small{
+  border-color: #ffd700 !important;
+  background-color: #ffd700!important;
+  color: #000000 !important;
+  font-size: 1rem !important;
+  font-weight: bold !important;
+}
+
+.btn:hover, .btn-large:hover, .btn-small:hover{
+    background-color: #000000!important;
+    color: #fff !important;
+    border-color: #ffd700 !important;
+}
+
+/* Carrousel */
+
+.carousel .carousel-item{
+  width: 35%;
+  height: auto;
+}
+
+/* Login */
+
+.inputIcon
+{
+  margin-top: 8px;
+}
+
+
+.input-field label 
+{
+  color:#9e9e9e !important;
+}Solar_Field_series
+
+.input-field > input[type]:-webkit-autofill:not(.browser-default):not([type="search"]) + label, .input-field > input[type=date]:not(.browser-default) + label, .input-field > input[type=time]:not(.browser-default) + label {
+  -webkit-transform: translateY(-16px) scale(0.8)!important;
+  transform: translateY(-16px) scale(0.8)!important;
+}
+
+input[type=password]:not(.browser-default){
+  padding-left: 1rem !important;
+}
+
+/* label focus color */
+.input-field input[type=text]:focus + label 
+{
+  color: #2c79f4 !important;
+}
+/* label underline focus color */
+.input-field input[type=text]:focus 
+{
+  border-bottom: 1px solid #2c79f4 !important;
+  box-shadow: 0 1px 0 0 #2c79f4 !important;
+}
+
+.input-field input[type=text]
+{
+  border-bottom: 1px solid #2c79f4 !important;
+}
+
+.input-field input[type=text]:active
+{
+  border-bottom: 1px solid #2c79f4 !important;
+}
+
+/* icon prefix focus color */
+.input-field .prefix.active 
+{
+  color: #2c79f4;
+}
+
+.lever
+{
+  background-color: #ccc !important;
+}
+
+.lever::after
+{
+  background-color: #287bff !important;
+}
+
+.switch label input[type=checkbox]:checked + .lever
+{
+  background-color: #66a0ff !important;
+}
+
+.rememberMeInput
+{
+  position: absolute;
+  float: right;
+  margin-top: -20px !important;
+  margin-right: -235px;
+}
+
+.rememberMeContainer
+{
+  margin-top: -30px !important;
+}
+
+/* Tooltip Helper */
+
+i.material-icons.prefix.helper{
+  font-size: 1rem !important;
+  color: #9e9e9e !important;
+  vertical-align: middle !important;
+}
+
+i.material-icons.prefix.helper:hover{
+  color: #ffd700 !important;
+
+}
+.helper-h8{
+  width: 20px !important;
+  vertical-align: middle !important;
+  position : static !important;
+}
+
+.tt-h8{
+  line-height: 20px !important;
+}
+
+.input-field.col label{
+  line-height: 2rem !important;
+}
+
+/* Checkboxes */
+
+[type="radio"]:checked + span:after, [type="radio"].with-gap:checked + span:after{
+  background-color:#ffd700 !important;
+  color: #ffd700 !important;
+}
+[type="radio"]:checked + span:after, [type="radio"].with-gap:checked + span:before, [type="radio"].with-gap:checked + span:after{
+border: 2px solid #ffd700 !important;
+}
+
+.step-content {
+  min-height: auto !important;
+}
+
+/* Border Box*/
+
+.border-box{
+  border: 1px solid #ccc !important;
+  border-radius: 3px !important;
+}
+
+/* Cards */
+.card{
+  box-shadow: 0 10px 20px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.06);
+  height: fit-content;
+}
+
+.card-h:hover{
+  transform: scale(1.05);
+  box-shadow: 0 10px 20px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.06);
+}
+
+/* Linea step*/
+
+ul.stepper .step:not(:last-of-type)::after{
+  background-color:rgba(0, 0, 0, 0) !important;
+}
+
+/* Fuente pequeña*/
+
+.litle-font{
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  color: #9e9e9e !important;
+}
+
+/* Dropdown list */
+
+.dropdown-content li>a, .dropdown-content li>span{
+  color:#287bff !important;
+}
+/* Mapa */
+
+.gmap_canvas {
+  overflow:hidden;
+  background:none!important;
+  width:100%;
+  height:230px;
+}
+
+/* Footer */
+
+.footer {
+    position: fixed !important;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+}
+div.input-field .secciones {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+.menu-footer{
+  color: #ffd700 !important;
+}
+
+.menu-footer:hover{
+  color: #fff !important;
+}
+
+/*input */
+
+.input-field input[type=text] {
+    padding-left: 1rem !important;
+}
+
+/* Datatable*/
+
+.dataTables_wrapper .dataTables_filter input{
+  border: 0px !important;
+  border-bottom: 1px solid #aaa !important;
+}
+
+/* Ajuste de campos del formulario */
+
+.ancho_inputs_numeros{
+  width:4rem !important;
+}
+
+#i_manual{
+  display: none;
+}
+
+#t_retorno{
+  display: none;
+}
+
+#t_retorno_variable{
+  display: none;
+}
+
+#u_predef{
+  display: none;
+}
+
+#siglas_ocultas{
+  display: none;
+}
+
+/* #id_procesos [type="checkbox"]+label {
+  display: inline !important;
+}
+
+#id_procesos [type="checkbox"]{
+  opacity: 1 !important;
+  position: relative;
+} */
+
+#id_procesos li label {
+  line-height: 2rem !important;
+  vertical-align: middle !important;
+}
+
+/* Datatables */
+
+#tabla_colectores .dataTables_paginate a{
+  border: none;
+  border-radius: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover,
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled:active
+{
+  color:#ffd700 !important;
+}
+
+#tabla_colectores_wrapper{
+  padding-bottom: 0.5rem !important;
+}
+
+.dataTables_wrapper .dataTables_length select{
+  display:flex !important;
+}
+
+#cont_desemp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.materialize-textarea {
+  min-height: 100px;
+  height: auto;
+}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="container-fluid">
+        <div class="row bg-dark text-white text-center py-4">
+            <div class="col s4"></div>
+            <div class="col s4">
+                <h5>Bienvenid@ {{ profile.nombre|capfirst }} {{ profile.apellido|capfirst }}</h5>
+            </div>
+            <div class="col s4"></div>
+        </div>
+    </div>
+    <div class="container">    
+        <div class="row">
+            <div class="col mt-5 mb-2">                
+                <h6>Nombre: {{ profile.nombre|capfirst }}</h6>
+                <br>
+                <h6>Apellido: {{ profile.apellido|capfirst }}</h6>
+                <br>
+                <h6>Email: {{ profile.email }}</h6>
+                <br>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col text-center">
+                <div class="row">
+                    <div class="col s12">
+                        <a href="{% url 'update_profile' %}" class="btn btn-primary" role="button" aria-pressed="true">Modificar usuario</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col s10">
+                <h5 class="py-4 bg-dark text-center"><strong>Listado de simulaciones</strong></h5>
+            </div>
+            <div class="col s2">
+                <a href="{%  url 'simulacion' %}" class="btn btn-info text-white mt-2" role="button" aria-pressed="true">Crear simulación</a>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col">
+                {% if simulaciones %}
+                    <ul>
+                    {% for simulacion in simulaciones %}
+                        <li>{{ simulacion }}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No hay simulaciones.</p>
+                {% endif %}
+            </div>
+        </div>    
+    </div>
+{% endblock %}

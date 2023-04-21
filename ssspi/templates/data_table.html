@@ -1,0 +1,50 @@
+{% load static %}
+<div class="row">
+  <div id="man" class="col s12">
+    <div class="card material-table px-3">
+      <div class="table-header pt-2">
+        <span class="table-title">
+          <h8 class="tt-h8"
+            >Seleccionar colector predefinido:
+            <a
+              class="tooltipped"
+              data-position="bottom"
+              data-tooltip="Seleccione el colector preferido desde la tabla">
+              <i class="material-icons prefix helper-h8 helper px-2 py-2"
+                >help</i>
+            </a>
+          </h8>
+          <br>
+        </span>
+      </div>
+      <table id="tabla_colectores" class="display">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Area</th>
+            <th>frta</th>
+            <th>frul</th>
+            <th>iam</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for dato in datos %}
+          <tr>
+            <td>{{dato.nombre}}</td>
+            <td>{{dato.tipo}}</td>
+            <td>{{dato.area}}</td>
+            <td>{{dato.frta}}</td>
+            <td>{{dato.frul}}</td>
+            <td>{{dato.iam}}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!-- jquery -->
+<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<!-- jquery with datatable -->
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>

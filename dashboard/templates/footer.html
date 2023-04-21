@@ -1,0 +1,36 @@
+{% load static %}
+
+<footer class="page-footer white">
+  <hr color="#DFDFDF" size="0.125" width="98%" class="mb-5"> 
+  <div class="container">
+    <div class="row">
+      <div class="col l4 s12">
+        <a id="logo-container" href="{% url 'index' %}" class="brand-logo img-responsive">
+          <img src="{% static 'img/logotipo/logotipo-footer-gs.png' %}" alt="logotipo-gruposolar-ingenieriauc" class="img-responsive w-70">
+        </a>
+        <p class="black-text">SIMULADOR SOLAR PARA LA INDUSTRIA</p>
+      </div>
+      <div class="col l8">
+        <div class="col l4 s12">
+          <p class="black-text"><strong>PROYECTO DESARROLLADO EN COOPERACIÓN CON</strong></p>
+          <img src="{% static 'img/logotipo/logotipo_fraunhofer_chile.png' %}" alt="logotipo-fraunhoferchile" class="img-responsive w-70">
+        </div>
+        <div class="col l4 s12">
+          <p class="black-text"><strong>FINANCIA</strong></p>
+          <img src="{% static 'img/logotipo/logo-anid.png' %}" alt="logotipo-microprod-cyted-ministerio-espana" class="img-responsive w-40">
+        </div>
+        <div class="col l4 s12">
+          <p class="black-text"><strong>CON EL APOYO DE</strong></p>
+          <img src="{% static 'img/logotipo/Logos-Apoyo.png' %}" alt="logotipo-microprod-cyted-ministerio-espana" class="img-responsive w-70">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-copyright">
+    <div class="container black-text center">
+      &copy; Grupo Solar 2023 - Todos los derechos reservados.
+    <a class="black-text text-lighten-4 right p-2" href="https://mobile.twitter.com/gruposolaruc" target="_blank"><i class="fa fa-twitter" aria-hidden="true"></i></a>
+    <a class="black-text text-lighten-4 right p-2" href="http://gruposolar.uc.cl/index.php" target="_blank"><i class="fa fa-sun-o" aria-hidden="true"></i></a>
+    </div>
+  </div>
+</footer>

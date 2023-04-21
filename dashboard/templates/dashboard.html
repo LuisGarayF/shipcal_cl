@@ -1,0 +1,45 @@
+
+{% extends 'base.html'%}
+
+  {% block content %}
+  {% load static %}
+  {% block 'carrusel'%}
+    {% include './carrusel.html' %}
+  {% endblock %} 
+    <div class="container section">
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card card-h">
+            <a href="{% url 'login' %}">
+              <div class="card-image">
+                <img src="{% static './img/modern-pressure-collector.jpg' %}">
+                <span class="card-title"><strong>Simulador</strong></span>
+              </div>
+              <div class="card-content">
+                <p>Ingreso Simulador Solar.</p>
+              </div>
+              <div class="card-action">
+                <button href="{% url 'login' %}" class="btn btn-light">Simulación</button>
+              </div>
+            </a>
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="card card-h">
+            <a href="{% url 'login' %}">
+              <div class="card-image">
+                <img src="{% static './img/modern-pressure-collector.jpg' %}">
+                <span class="card-title"><strong>Documentación</strong></span>
+              </div>
+              <div class="card-content">
+                <p>Para más información ingrese en la sección de documentación.</p>
+              </div>
+              <div class="card-action">
+                <button href="{% url 'login' %}" class="btn btn-light">Ver Documentación</button>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endblock %}

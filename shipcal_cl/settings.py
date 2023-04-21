@@ -39,8 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'sims',
     'rest_framework',
+    'ssspi',
+    'materialize',
+    'materializecssform',
 ]
 
 MIDDLEWARE = [
@@ -55,8 +57,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'shipcal_cl.urls'
 
-TEMPLATES = [
-    {
+
+TEMPLATES = [    
+    {        
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [],
         'APP_DIRS': True,
@@ -67,9 +70,13 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            # 'libraries': {
+            #     'materializecssform_tags': 'materializecssform.templatetags.materializecssform_tags',
+            # },
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'shipcal_cl.wsgi.application'
 
@@ -77,10 +84,21 @@ WSGI_APPLICATION = 'shipcal_cl.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'ssspicl',
+        'USER': 'postgres',
+        'PASSWORD': 'admin',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -125,3 +143,12 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+AUTH_USER_MODEL = 'ssspi.Usuario'
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+LOGIN_REDIRECT_URL = '/'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -1,0 +1,103 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es"  class="h-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="description" content="Simulador Solar para la Industria">
+    <title>{% block title %} Grupo Solar - SSSpI {% endblock title %}</title>
+    <!-- Favicon  -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'img/favicon/favicon-16x16.png' %}">
+    <!-- Fonts-->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Iconos -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />
+    <!-- Hojas de estilo -->
+    <link rel="stylesheet" href="{% static 'css/materialize.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mstepper.css' %}">
+    <link rel="stylesheet" href="{% static 'css/auxiliar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link href="http://cdn.pydata.org/bokeh/release/bokeh-2.3.2.min.css" rel="stylesheet” type="text/css”>
+    <link href="http://cdn.pydata.org/bokeh/release/bokeh-widgets-2.3.2.min.css" rel="stylesheet” type="text/css”>
+    <!-- Select 2 -->
+    <!--<link href="{% static 'css/select2.min.css' %}" rel="stylesheet" />
+    <script src="{% static 'js/select2.min.js' %}"></script>-->
+    <!--<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>-->
+
+
+    <link href="https://cdn.pydata.org/bokeh/release/bokeh-tables-1.0.1.min.css" rel="stylesheet" type="text/css">
+    <!--Font Awesome -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.1.1/css/all.css" integrity="sha384-/frq1SRXYH/bSyou/HUp/hib7RVN1TawQYja658FEOodR/FQBKVqT9Ol+Oz3Olq5" crossorigin="anonymous">
+</head>
+<body  class="d-flex flex-column h-100">
+    <!-- Scripts -->
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.3.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.3.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.3.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-2.3.2.min.js"></script>
+
+    {% block 'navbar'%}
+        {% include './navbar.html' %}
+    {% endblock %}
+    {% block content %}
+    {% endblock %}
+    {% block 'footer'%}
+        {% include './footer.html' %}
+    {% endblock %}
+
+    <!-- Datatable -->
+    <link rel="stylesheet" type="text/css" href="{% static 'css/datatables.min.css' %}">
+    <script type="text/javascript" src="{% static 'js/datatables.min.js' %}"></script>
+    <script src="https://use.fontawesome.com/770a1b553c.js"></script>
+    <script src="{% static 'js/materialize.js' %}"></script>
+    <script src="{% static 'js/mstepper.js' %}"></script>
+
+    <script>
+        /* Inicializar Materialize css*/
+        M.AutoInit();
+    </script>
+    <script>
+            $(document).ready(function() {
+                $('select').formSelect();
+                $('.carousel').carousel();
+                $('#tabla_colectores').DataTable({
+                    "language": {
+                        "sProcessing":     "Procesando...",
+                        "sLengthMenu":     "Mostrar _MENU_ registros",
+                        "sZeroRecords":    "No se encontraron resultados",
+                        "sEmptyTable":     "Ningún dato disponible en esta tabla",
+                        "sInfo":           "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+                        "sInfoEmpty":      "Mostrando registros del 0 al 0 de un total de 0 registros",
+                        "sInfoFiltered":   "(filtrado de un total de _MAX_ registros)",
+                        "sInfoPostFix":    "",
+                        "sSearch":         "Buscar:",
+                        "sUrl":            "",
+                        "sInfoThousands":  ",",
+                        "sLoadingRecords": "Cargando...",
+                        "oPaginate": {
+                            "sFirst":    "Primero",
+                            "sLast":     "Último",
+                            "sNext":     "Siguiente",
+                            "sPrevious": "Anterior"
+                        },
+                        "oAria": {
+                            "sSortAscending":  ": Activar para ordenar la columna de manera ascendente",
+                            "sSortDescending": ": Activar para ordenar la columna de manera descendente"
+                        }
+                    },
+                    select: true
+                });
+            });         
+
+    </script>
+    </body>
+    <script src="{% static 'js/main.js' %}" async></script>
+</html>

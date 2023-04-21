@@ -1,0 +1,337 @@
+{% extends 'base_results.html'%}
+{% load static %}
+
+{% block content %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<div class="container" id="content">
+    <div class="row border-box">
+        <div class="col s12 py-5">
+            <div class="col s3 p-4">
+                <img src="{% static 'img/logotipo/logotipo_fraunhofer_chile.png' %}" class="img-responsive w-100">            
+           </div>
+           <div class="col s6">
+            </div>
+           <div class="col s3 p-4 pr-0">
+            <img src="{% static 'img/logotipo/logotipo.png' %}" class="img-responsive w-100">            
+            </div>
+            <div class="col s12 py-5">
+                <h4 class="center-align"> SISTEMA DE SIMULACIÓN SOLAR PARA LA INDUSTRIA - SSSPI</h4>
+                <br>
+                <hr>
+                <br>
+            </div>
+            <div class="col s6 py-5">
+                <div class="row pt-6">
+                    <div class="col s2">
+                    </div>
+                    <div class="col s4">
+                        <strong>Fecha de creación:</strong>
+                    </div>
+                    <div class="col s4">
+                        
+                    </div>
+                    <div class="col s2">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s2">
+                    </div>
+                    <div class="col s4">
+                        <strong>Nombre de usuario:</strong>
+                    </div>
+                    <div class="col s4">
+                        {{ user | capfirst }}
+                    </div>
+                    <div class="col s2">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s2">
+                    </div>
+                    <div class="col s4">
+                        <strong>Nombre de simulación:</strong>
+                    </div>
+                    <div class="col s4">
+                        {{results.sim_name}}
+                    </div>
+                    <div class="col s2">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s2">
+                    </div>
+                    <div class="col s4">
+                        <strong>Latitud:</strong>
+                    </div>
+                    <div class="col s4">
+                        {{results.latitude}}
+                    </div>
+                    <div class="col s2">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s2">
+                    </div>
+                    <div class="col s4">
+                        <strong>Longitud:</strong>
+                    </div>
+                    <div class="col s4">
+                        {{results.longitud}}
+                    </div>
+                    <div class="col s2">
+                    </div>
+                </div>
+            </div>
+            <div class="col s6">
+                <div class="col s12">
+                    <p>{{results.integration_scheme_initials}}</p>
+                    <img src="{% static 'img/esquemas_integracion/SL_L_PD.png' %}" class="img-responsive border-box">
+                </div>
+            </div>
+        </div> 
+        <div class="s12">
+            <div class="row">
+                <div class="col s12 py-5">
+                    <br>
+                    <hr>
+                    <h4 class="center-align"> Resultados de desempeño</h4>
+                    <br>
+                </div>
+                <div class="col 12 px-6" id="cont_desemp">
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="row">
+                                <div class="col s6">
+                                    <strong>Fracción Solar Anual:</strong>
+                                </div>
+                                <div class="col s6">
+                                    <input id="id_fraccion_solar" class="w-50" readonly>(%)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="col s2">
+                            </div>
+                            <div class="col s4">
+                                <strong>Energía Solar Anual Producida:</strong>
+                            </div>
+                            <div class="col s5">
+                                <input id="id_energia_solar" class="w-50 v" readonly>(kWh)
+                            </div>
+                            <div class="col s2">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="row">
+                            <div class="col s2">
+                            </div>
+                            <div class="col s4">
+                                <strong>Demanda Energía Anual:</strong>
+                            </div>
+                            <div class="col s5">
+                                <input id="id_energia_solar" class="w-50" readonly>(kWh)
+                            </div>
+                            <div class="col s2">
+                            </div>
+                        </div>
+                    </div>
+                </div>    
+            </div>
+        </div>
+        <div class="col s12 py-5">
+            <br>
+            <hr>
+            <h4 class="center-align">Gráficos</h4>
+            <br>
+        </div>
+        <div class="col s12 py-5">
+            <div class="col s6">
+                <img src="{% static 'img/heatmap_graph.png' %}" class="img-responsive w-90">            
+            </div>
+            <div class="col s6">
+                <img src="{% static 'img/heatmap_graph.png' %}" class="img-responsive w-90">            
+            </div>
+            <div class="col s6">
+                <img src="{% static 'img/heatmap_graph.png' %}" class="img-responsive w-90">            
+            </div>
+            <div class="col s6">
+                <img src="{% static 'img/heatmap_graph.png' %}" class="img-responsive w-90">            
+            </div>
+        </div>
+        <div class="col s12 py-5">
+            <br>
+            <hr>
+            <h4 class="center-align">Resultados Económicos</h4>
+            <br>
+        </div>
+        <div class="col s6 py-5">
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Periodo de evaluación:</strong></p>
+                </div>
+                <div class="col s6">
+                    <p>20 años</p>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Inversión Inicial:</strong></p>
+                </div>
+                <div class="col s6">
+                    $ <input id="id_inversion" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Costos Mantención Anual:</strong></p>
+                </div>
+                <div class="col s6">
+                    $ <input id="id_mantencion" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Precio Combustible:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.fuel_price}}
+                    $ <input id="id_precio_combustible" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Tasa Descuento:</strong></p>
+                </div>
+                <div class="col s6">
+                    <input id="id_descuento" class="w-50" readonly> (%)
+                </div>    
+            </div>
+        </div>
+        <div class="col s6 py-5">
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Ahorro Anual:</strong></p>
+                </div>
+                <div class="col s6">
+                    $ <input id="id_ahorro" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Valor Anual Neto (VAN):</strong></p>
+                </div>
+                <div class="col s6">
+                    $ <input id="id_van" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Tasa Interna Retorno (TIR):</strong></p>
+                </div>
+                <div class="col s6">
+                    $ <input id="id_tir" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Cantidad de años para recuperación de la inversión:</strong></p>
+                </div>
+                <div class="col s6">
+                    <input id="id_recuperacion" class="w-50" readonly> años
+                </div>    
+            </div>
+        </div>
+        <div class="col s12 py-5">
+            <br>
+            <hr>
+            <h4 class="center-align">Detalles del campo solar</h4>
+            <br>
+        </div>
+        <div class="col s6 py-5">
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Número de filas:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.coll_rows}}
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Número de colectores por fila:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.colls_per_row}}
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Costos Mantención Anual:</strong></p>
+                </div>
+                <div class="col s6">
+                    $ <input id="id_mantencion" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Total de colectores:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.total_collectors}}
+                    $ <input id="id_precio_combustible" class="w-50" readonly>
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Tpo de colectores:</strong></p>
+                </div>
+                <div class="col s6">
+                    <input id="id_tipo_colector" class="w-50" readonly>
+                </div>    
+            </div>
+        </div>
+        <div class="col s6 py-5">
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Amacenamiento Térmico Incluido:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{boiler_type}}
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Volúmen Almacenamiento Térmico:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.tank_volume}} {{results.boiler_nominal_power_units}}
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Temperatura Almacenamiento:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.return_inlet_temperature}} °C
+                </div>    
+            </div>
+            <div class="row py-4 px-2">
+                <div class="col s6">
+                    <p><strong>Superficie Total del Campo Solar:</strong></p>
+                </div>
+                <div class="col s6">
+                    {{results.field_land_area}}
+                </div>      
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <a type="button" class="btn waves-effect waves" href="{% url 'pdf_view'%}">Descargar PDF</a>
+        <button type="button" class="btn waves-effect waves">Volver al Dashboard</button>
+    </div>     
+</div>
+{% endblock %}

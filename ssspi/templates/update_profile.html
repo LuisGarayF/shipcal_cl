@@ -1,0 +1,26 @@
+{% extends 'base.html'%}
+{% load static %}
+{% block 'content' %}
+    <div class="container-fluid">
+        <div class="row bg-dark text-white text-center">
+            <div class="h-100 py-5">
+                <h1 class="text-center"> Actualizar perfil </h1>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col">
+            <div class="form-signin w-50 m-auto col-12 col-md-6 offset-0 offset-md-3">
+                <form method="POST" class="my-5">
+                    {% csrf_token %}
+                    {{u_form}}
+                    {{p_form}} {# Agregar formulario de perfil #}
+                    <div class="col text-center">
+                        <input type="submit" value="Registrar" class="btn-dark mt-4 px-5 w-30" style="font-size: 1.25rem;">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

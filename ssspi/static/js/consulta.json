@@ -1,0 +1,166 @@
+{
+    "action": {
+      "action": "series",
+      "interval": "month",
+      "stat": "mean",
+      "tmy": false
+    },
+    "period": {
+      "start": "2010-01-01",
+      "end": ""
+    },
+    "export": {
+      "label": "test1",
+      "format": "csv"
+    },
+    "variables": [
+      {
+        "id": "ghi",
+        "options": {
+          "label": "GHI",
+          "stat": "default",
+          "band": "full",
+          "clearsky": false,
+          "fill_missing": false
+        }
+      },
+      {
+        "id": "radw",
+        "options": {
+          "label": "Rad WRF",
+          "stat": "default"
+        }
+      },
+      {
+        "id": "dni",
+        "options": {
+          "label": "DNI",
+          "stat": "default",
+          "band": "full",
+          "clearsky": false,
+          "fill_missing": false
+        }
+      },
+      {
+        "id": "glb",
+        "options": {
+          "label": "GLB",
+          "stat": "default",
+          "band": "full",
+          "clearsky": false,
+          "fill_missing": false,
+          "receptor": {
+            "type": "tilt",
+            "azimuth": 0,
+            "elev1": 99,
+            "elev2": 0,
+            "hsatmax": 45,
+            "optimize": false,
+            "optimize_on_rglb": false
+          }
+        }
+      },
+      {
+        "id": "dir",
+        "options": {
+          "label": "DIR",
+          "stat": "default",
+          "band": "full",
+          "clearsky": false,
+          "fill_missing": false,
+          "receptor": {
+            "type": "tilt",
+            "azimuth": 0,
+            "elev1": 99,
+            "elev2": 0,
+            "hsatmax": 45,
+            "optimize": false,
+            "optimize_on_rglb": false
+          }
+        }
+      },
+      {
+        "id": "dif",
+        "options": {
+          "label": "DIF",
+          "stat": "default",
+          "band": "full",
+          "clearsky": false,
+          "fill_missing": false,
+          "receptor": {
+            "type": "tilt",
+            "azimuth": 0,
+            "elev1": 99,
+            "elev2": 0,
+            "hsatmax": 45,
+            "optimize": false,
+            "optimize_on_rglb": false
+          }
+        }
+      },
+      {
+        "id": "sct",
+        "options": {
+          "label": "RFL",
+          "stat": "default",
+          "band": "full",
+          "clearsky": false,
+          "fill_missing": false,
+          "receptor": {
+            "type": "tilt",
+            "azimuth": 0,
+            "elev1": 99,
+            "elev2": 0,
+            "hsatmax": 45,
+            "optimize": false,
+            "optimize_on_rglb": false
+          }
+        }
+      },
+      {
+        "id": "cloud",
+        "options": {
+          "label": "Nube",
+          "stat": "default"
+        }
+      },
+      {
+        "id": "shadow",
+        "options": {
+          "label": "Sombra",
+          "stat": "default"
+        }
+      },
+      {
+        "id": "el",
+        "options": {
+          "label": "El",
+          "stat": "default"
+        }
+      },
+      {
+        "id": "az",
+        "options": {
+          "label": "Az",
+          "stat": "default"
+        }
+      },
+      {
+        "id": "vel",
+        "options": {
+          "label": "Vel",
+          "stat": "default",
+          "recon": "off",
+          "hgt": 100
+        }
+      }
+    ],
+    "position": [
+      {
+        "label": "",
+        "type": "point",
+        "lon": 0,
+        "lat": 0
+      }
+    ]
+  }

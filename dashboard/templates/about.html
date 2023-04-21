@@ -1,0 +1,33 @@
+{% extends 'base.html'%}
+{% block content %}
+{% load static %}
+<main>
+    <div class="container py-7 center section">
+        <div class="row">
+            <div class="col">
+                
+            </div>
+        </div>
+    </div>
+    <div class="container section">
+        <div class="row">
+            <div class="col s12">
+                <div class="p-5 center">
+                    <img src="{% static 'img/logotipo/logotipo.png' %}" alt="logotipo" class="img-fluid mg-5" style="width:400px;">
+                </div>
+            </div>
+            <div class="container py-1">
+                <div class="row">
+                    <div class="col s12">
+                        <p class="flow-text">Somos un equipo multidisciplinario de científicos y profesionales apasionados de la energía solar.</p>
+                        <p class="flow-text">Reunimos una singular combinación de talento y experiencia en ciencia y tecnología que nos permite adaptarnos a los requerimientos de nuestros clientes en proyectos de investigación, desarrollo e innovación (I+D+i).</p>
+                        <br>
+                        <h4 class="pb-4">¿Quieres saber más?</h4>
+                        <a href="{% url 'contacto' %}" class="btn mx-auto"> Contáctanos</a>
+                    </div>
+                </div>   
+            </div> 
+        </div>
+    </div>
+</main>
+{% endblock %}

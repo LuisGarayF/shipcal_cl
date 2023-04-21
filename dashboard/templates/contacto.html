@@ -1,0 +1,58 @@
+{%extends 'base.html'%}
+{% block content %}
+{% load static %}
+<main>
+    <div class="container section">
+        <div class="row card">
+            <div class="col s12">    
+                <div class="row mb-5 center">
+                    <div class="col l12 mb-2">
+                        <div class="h-100 py-2 center">
+                            <h3 class="center"> Formulario de contacto </h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="container section">
+                    <div class="row pb-3">
+                        <div class="col l12 center">     
+                            <form action="/contacto" method="POST">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="input-field col s12">
+                                    <i class="material-icons prefix">mail_outline</i>
+                                    {{ form.customer_email}}
+                                    <label for="{{ form.customer_email.id_for_label }}"data-error="wrong" data-success="right">Correo Electrónico</label>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="input-field col s12">
+                                    <i class="material-icons prefix">perm_identity</i>
+                                    {{ form.customer_name}}
+                                    <label for="{{ form.customer_name.id_for_label }}"data-error="wrong" data-success="right">Nombre </label>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="input-field col s12">
+                                    <i class="material-icons prefix">perm_identity</i>
+                                    {{ form.subject }}
+                                    <label for="{{ form.subject.id_for_label }}">Asunto</label>
+                                    </div>
+                                </div>
+                                <div class="row" style=" height: auto;">
+                                    <div class="input-field col s12">
+                                    <i class="material-icons prefix">mode_edit</i>
+                                    <label for="mensaje">Mensaje</label>
+                                    <textarea name="mensaje" id="" rows="10" class="materialize-textarea" length="140" required></textarea>
+                                    </div>
+                                </div>
+                                <!--{{ form }}-->
+                                <input type="submit" value="Enviar" class="btn my-5 px-5">
+                            </form>
+                        </div>
+                    </div>  
+                </div>
+            </div>
+        </div>    
+    </div>
+</main>
+{% endblock %}

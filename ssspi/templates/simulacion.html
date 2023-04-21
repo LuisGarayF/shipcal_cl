@@ -1,0 +1,1488 @@
+{% extends 'base.html'%}
+{% block content %}
+{% load static %}
+{% load materializecss %}
+<main class="container">
+    <div class="row">
+      <h4 class="py-3">Crear nueva simulación</h4>
+        <form class="form-horizontal my-5" name="simform" enctype="multipart/form-data" method="POST" id="simform">
+            {% csrf_token %}
+            <span>
+                {% if form.errors %}
+                <ul class="user-msg error">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li>
+                          {% if field != '__all__' %}
+                            <strong>{{ field.label }}:</strong>
+                          {% endif %}
+                          {{ error }}
+                        </li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            {% endif %}
+            </span>
+            <ul class="stepper">
+                <li class="step active card mx-2" id="cont_ident">
+                    <div class="step-title waves-effect">
+                    Identificación
+                    </div>
+                    <div class="step-content">
+                        <div class="row content-card">
+                            <div class="form-field col s6">
+                                <div class="input-field col s12">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Titulo para identificar la simulación">
+                                        <label for="nombre_simulacion">Nombre simulación: <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{ form.nombre_simulacion }}
+                                    <span>{{form.nombre_simulacion.errors}}</span>
+                                </div>
+                            </div>
+                            <div class="form-field col s12">
+                                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+                                <script>
+                                    $(document).ready(function() {
+                                        $("#id_sector").change(function() {
+                                            updateAplicacion();
+                                        });
+                            
+                                        function updateAplicacion() {
+                                            var sector_id = $("#id_sector").val();
+                                            $.ajax({
+                                                type: "GET",
+                                                url: "{% url 'update_aplicacion' %}",
+                                                data: {
+                                                    'sector_id': sector_id
+                                                },
+                                                success: function(data) {
+                                                    var options = "";
+                                                    for (var i = 0; i < data.length; i++) {
+                                                        options += "<option value='" + data[i].id + "'>" + data[i].name + "</option>";
+                                                    }
+                                                    $("#id_aplicacion").html(options);
+                                                    console.log(options);
+                                                },
+                                                error: function(error) {
+                                                    console.log(error);
+                                                }
+                                            });
+                                        }
+                            
+                                    });
+                                </script>
+                                <script type="text/javascript" src="{% static 'js/apiern.js' %}"></script>
+                                
+                                <div class="input-field col m4 s12">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Sector industrial en el que se encuentra la industria evaluada">
+                                        <label id="id_label_sector" class="active"> Sector Industrial:  <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{ form.sector }}
+                                    <span>{{form.sector.errors}}</span>
+                                </div>
+                                <div class="input-field col m4 s12">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Opciones de aplicación segun sector industrial">
+                                        <label for="id_label_aplicacion" class="active" id="label_aplicacion"> Aplicación: <i class="material-icons prefix helper pl-2">help</i> </label>
+                                    </a>
+                                    {{ form.aplicacion }}
+                                    <!--<<select name="aplicacion" class="browser-default" id="id_aplicacion" tabindex="-1" onchange="procesos_choices()"></select>-->
+                                    <span>{{form.aplicacion.errors}}</span>
+                                </div>
+                            </div>
+                            
+                        </div>
+                        <div class="step-actions center py-4 my-2">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step" disabled>
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-reset" type="reset">
+                                    <i class="material-icons left">clear</i>Reestablecer
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                    Siguiente
+                                    <i class="material-icons right">arrow_forward</i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li class="step card mx-2" id="cont_ubica">
+                    <div class="step-title waves-effect waves-dark">
+                        Ubicación
+                    </div>
+                    <div class="step-content">
+                        <div class="row">
+                            <div class="form-field col s12 ">
+                                <div class="input-field col s12 my-4">
+                                    <!-- Switch -->
+                                    <div class="switch">
+                                        <label>
+                                        Ingreso Manual de ubicación
+                                        <input type="checkbox" id="switch_ubicacion">
+                                        <span class="lever"></span>
+                                        Ubicación prededeterminada
+                                        </label>
+                                    </div>
+                                </div>                   
+                                <div class="input-field col s8 my-0">
+                                    <p> Arrastre el icono sobre el mapa para obtener la ubicación:</p>
+                                    <div class="mapouter">
+                                        <div class="gmap_canvas" id="mapa" style="width: 100%; height:350px;">                  
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="input-field col s4 my-2" id ="u_predef">
+                                    <p class="active"> Seleccionar ubicación predeterminada: </p>
+                                    {{form.nombre_ubicacion}}
+                                    <span>{{form.nombre_ubicacion.errors}}</span>
+                                </div>
+                                <div class="input-field col s4 my-1" id="u_manual">
+                                    <p> Ingrese latitud y longitud: </p>
+                                    <div class="input-field my-0 col s5">
+                                        <a class="tooltipped" data-position="right" data-tooltip="Latitud del lugar de la instalación simulada">
+                                            <label for="latitud" id="label-lat">Latitud: <i class="material-icons prefix helper pl-2">help</i></label>
+                                        </a>
+                                        {{ form.latitud}}
+                                        <span>{{form.latitud.errors}}</span>
+                                    </div>
+                                    <div class="input-field col s1">
+                                        
+                                             
+                                        </a>
+                                    </div>
+                                    <div class="input-field my-0 col s5">
+                                        <a class="tooltipped" data-position="right" data-tooltip="Longitud del lugar de la instalación simulada">
+                                            <label for="longitud" id="label-long">Longitud: <i class="material-icons prefix helper pl-2">help</i></label> 
+                                        </a>
+                                        {{ form.longitud}}
+                                        <span>{{form.longitud.errors}}</span>
+                                    </div>
+                                    <div class="input-field col s1">
+                                        
+                                    </div>
+                                </div>     
+                            </div>
+                        </div>
+                        <div class="step-actions center">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step">
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-reset" type="reset">
+                                    <i class="material-icons left">clear</i>Reestablecer
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                    Siguiente
+                                    <i class="material-icons right">arrow_forward</i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li class="step card mx-2">
+                    <div class="step-title waves-effect waves-dark">
+                        Demanda y Proceso
+                    </div>
+                    <div class="step-content">
+                        <div class="row pg-4 mg-4">
+                            <h6>Perfil de demanda:</h6>
+                            <div class="form-field col s6 my-4" id="cont_perfil_de">
+                                <div class="col s12 border-box">
+                                    <div class="navigation">
+                                        <a class="tooltipped" data-position="right" data-tooltip="Tipo de combustible utilizado en la caldera">
+                                            <label for="id_fuel">Combustible:</label><i class="material-icons prefix helper pl-2">help</i>
+                                        </a>
+                                        {{ form.combustible }}
+                                        <span>{{form.combustible.errors}}</span>
+                                    </div>
+                                </div>
+                                <div class="form-field col s12 border-box">
+                                    <h6>Demanda Semanal:
+                                        <a class="tooltipped" data-position="right" data-tooltip="Indicar los días en los que se la planta está operativa o presenta consumo de energía térmica">
+                                        <i class="material-icons prefix helper pl-1">help</i></a>
+                                    </h6>
+                                    <div class="input-field col s4">
+                                        <ul class="my-4 px-3">
+                                            <li class="">   
+                                                <label class="active">
+                                                    {{ form.demanda_lun }}
+                                                    <span>Lunes</span>
+                                                </label>
+                                                <span>{{form.demanda_lun.errors}}</span>
+                                            </li>
+                                            <li class="">
+                                                <label class="active">
+                                                    {{ form.demanda_mar }}
+                                                    <span>Martes</span>
+                                                </label>
+                                                <span>{{form.demanda_mar.errors}}</span>
+                                            </li>
+                                            <li>
+                                                <label class="active">
+                                                    {{ form.demanda_mie }}
+                                                    <span>Miercoles</span>
+                                                </label>
+                                                <span>{{form.demanda_mie.errors}}</span>
+                                            </li>
+                                            <li>
+                                                <label class="active">
+                                                    {{ form.demanda_jue }}
+                                                    <span>Jueves</span>
+                                                </label>
+                                                <span>{{form.demanda_jue.errors}}</span>
+                                            </li>
+                                            <li>
+                                                <label class="active">
+                                                    {{ form.demanda_vie }}
+                                                    <span>Viernes</span>
+                                                </label>
+                                                <span>{{form.demanda_vie.errors}}</span>
+                                            </li>
+                                            <li>
+                                                <label class="active">
+                                                    {{ form.demanda_sab }}
+                                                    <span>Sábado</span>
+                                                </label>
+                                                <span>{{form.demanda_sab.errors}}</span>
+                                            </li>
+                                            <li>
+                                                <label class="active">
+                                                    {{ form.demanda_dom }}
+                                                    <span>Domingo</span>
+                                                </label>
+                                                <span>{{form.demanda_dom.errors}}</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="form-field col s8 my-4">
+                                        <h6>Jornada:
+                                            <a class="tooltipped" data-position="right" data-tooltip="Seleccionar horas de inicio y fin de la jornada - Operación de los procesos térmicos">
+                                            <i class="material-icons prefix helper pl-1">help</i></a>
+                                        </h6>
+                                        <span class="col s10">
+                                            <label for="ini_jornada" id="id_label_ini_jornada" class="active">Inicio: </label>
+                                            {{ form.ini_jornada}}
+                                            <span>{{form.ini_jornada.errors}}</span>
+                                        </span>
+                                        <span class="col s10">
+                                            <label for="term_jornada" id="id_label_term_jornada" class="active">Término: </label>
+                                            {{ form.term_jornada}}
+                                            <span>{{form.term_jornada.errors}}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="form-field col s12 border-box">
+                                    <h6>Demanda Anual:
+                                        <a class="tooltipped" data-position="right" data-tooltip="Corresponde al cálculo del promedio de las demandas mensuales">
+                                        <i class="material-icons prefix helper pl-1">help</i></a>
+                                    </h6>
+                                    <div class="input-field col s12">
+                                        <div class="col m6 s12">
+                                            <div class="navigation">
+                                                <a class="tooltipped" data-position="right" data-position="right" data-delay="50" data-tooltip="Demanda anual de combustible">
+                                                    <label for="id_label_demanda_anual">Demanda anual:</label><i class="material-icons prefix helper pl-2">help</i>
+                                                </a>
+                                            </div>
+                                            {{ form.demanda_anual }}
+                                            <span>{{form.demanda_anual.errors}}</span>
+                                        </div>
+                                        <div class="col m6 s12">
+                                            <div class="navigation">
+                                                <a class="tooltipped" data-position="right" data-position="right" data-delay="50" data-tooltip="Especificar las unidades correspondientes al valor de la demanda">
+                                                    <label for="id_label_unidad_demanda">Unidad de demanda:</label><i class="material-icons prefix helper pl-2">help</i>
+                                                </a>
+                                                {{form.unidad_demanda}}
+                                                <span>{{form.unidad_demanda.errors}}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-field col s6 my-4 border-box" id="cont_demanda_mensual">
+                                <h6>Demanda Mensual:
+                                    <a class="tooltipped" data-position="right" data-tooltip="Especificar demanda energética para cada mes">
+                                    <i class="material-icons prefix helper pl-1">help</i></a>
+                                </h6>
+                                <div class="input-field col s6">
+                                    <ul class="my-4 px-3">
+                                        <li>   
+                                            <label>Enero:</label>
+                                            {{ form.demanda_enero }}
+                                            <span>{{form.demanda_enero.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Febrero</label>
+                                            {{ form.demanda_febrero }}
+                                            <span>{{form.demanda_febrero.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Marzo</label>
+                                            {{ form.demanda_marzo }}
+                                            <span>{{form.demanda_marzo.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Abril</label>
+                                            {{ form.demanda_abril }}
+                                            <span>{{form.demanda_abril.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Mayo</label>
+                                            {{ form.demanda_mayo }}
+                                            <span>{{form.demanda_mayo.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Junio</label>
+                                            {{ form.demanda_junio }}
+                                            <span>{{form.demanda_junio.errors}}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="input-field col s6">
+                                    <ul class="my-4 px-3">
+                                        <li>   
+                                            <label>Julio</label>
+                                            {{ form.demanda_julio }}
+                                            <span>{{form.demanda_julio.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Agosto</label>
+                                            {{ form.demanda_agosto }}
+                                            <span>{{form.demanda_agosto.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Septiembre</label>
+                                            {{ form.demanda_septiembre }}
+                                            <span>{{form.demanda_septiembre.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Octubre</label>
+                                            {{ form.demanda_octubre }}
+                                            <span>{{form.demanda_octubre.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Noviembre</label>
+                                            {{ form.demanda_noviembre }}
+                                            <span>{{form.demanda_noviembre.errors}}</span>
+                                        </li>
+                                        <li>
+                                            <label>Diciembre</label>
+                                            {{ form.demanda_diciembre }}
+                                            <span>{{form.demanda_diciembre.errors}}</span>
+                                        </li>
+                                    </ul>
+                                   <br>
+                                </div>
+                            </div>
+                            <div class="form-field col s12 my-4 border-box" id="cont_param_caldera">
+                                <h6>Parámetros de la caldera:</h6>
+                                <div class="input-field my-2 col m2 s6">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Potencia de la caldera en condiciones nominales de operación">
+                                        <label for="id_potencia_caldera" id="id_label_potencia_caldera">Potencia nominal caldera: <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{form.potencia_caldera}}
+                                    <span>{{form.potencia_caldera.errors}}</span>
+                                </div>
+                                <div class="input-field my-2 col m2 s6">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Unidades de potencia de la caldera">
+                                        <label for="id_unidad_potencia" id="id_label_unidad_potencia">Unidad de potencia caldera: <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{form.unidad_potencia}}
+                                    <span>{{form.unidad_potencia.errors}}</span>
+                                </div>
+                                <div class="input-field my-2 col m2 s6">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Presión nominal de operación de la caldera">
+                                        <label for="id_presion_caldera" id="id_label_presion_caldera">Presión caldera: <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{form.presion_caldera}}
+                                    <span>{{form.presion_caldera.errors}}</span>
+                                </div>
+                                <div class="input-field my-2 col m2 s6">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Unidades de presión de la caldera">
+                                        <label for="id_unidad_presion" id="id_label_unidad_presion">Unidad de presión caldera: <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{form.unidad_presion}}
+                                    <span>{{form.unidad_presion.errors}}</span>
+                                </div>
+                                <div class="input-field my-2 col m2 s6">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Tipo de caldera considerada en el sistema de calor industrial">
+                                        <label for="id_tipo_caldera" id="id_label_tipo_caldera">Tipo de caldera: <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{form.tipo_caldera}}
+                                    <span>{{form.tipo_caldera.errors}}</span>
+                                </div>
+                                <div class="input-field my-2 col m2 s6">
+                                    <a class="tooltipped" data-position="right" data-tooltip="Eficiencia de la caldera en el punto de operación nominal">
+                                        <label for="{eficiencia_caldera}" id="id_label_eficiencia_caldera">Eficiencia de la caldera: (%) <i class="material-icons prefix helper pl-2">help</i></label>
+                                    </a>
+                                    {{form.eficiencia_caldera}}
+                                    <span>{{form.eficiencia_caldera.errors}}</span>
+                                </div>
+                            </div>
+                            <div class="form-field col s12 my-4 border-box" id="temperaturas">
+                                <h6  class="pt-4">Parámetros de Temperatura:</h6>
+                                <div class="input-field col s12 border-box">
+                                    <h8 class="pt-4"> Temperatura de Entrada:
+                                        <a class="tooltipped" data-position="right" data-tooltip=" Dependiendo de el esquema de integración <br>
+                                            La temperatura en circuito abierto corresponde al ingreso de agua desde la red de agua potable <br>
+                                            La temperatura en circuito cerrado corresponde al ingreso de agua desde el retorno del sistema">
+                                            <i class="material-icons prefix helper pl-2">help</i></label>
+                                        </a>    
+                                    </h8>
+                                    <!-- Switch -->
+                                    <div class="switch pt-4">
+                                        <label>
+                                            Circuito abierto   
+                                            <input type="checkbox" id="switch_temperatura">
+                                            <span class="lever"></span>
+                                            Circuito cerrado
+                                        </label>
+                                    </div>
+                                    <div class="input-field my-4 col s12" id="t_entrada">
+                                        <a class="tooltipped" data-position="right" data-tooltip="Temperatura estimada del agua desde la red de agua potable">
+                                            <label for="temperatura_red" id="id_label_temperatura_red">Temperatura desde la red: (°C)<i class="material-icons prefix helper pl-2">help</i></label>
+                                        </a>
+                                        <p> La temperatura del agua de la red es determinada internamente por el algoritmo desarrollado por NREL </p>           
+                                        <!--{{form.temperatura_red}}-->
+                                        <span>{{form.temperatura_red.errors}}</span>
+                                    </div>
+                                    <div class="input-field my-4 col s12" id="t_retorno">
+                                        <h8>Temperatura circuito cerrado: (°C)
+                                            <a class="tooltipped" data-position="right" data-tooltip="Temperatura estimada del fluido retornando del proceso térmico<br>
+                                                Puede elegir entre ingresar una temperatura constante para un año o con variación mensual">
+                                                <i class="material-icons prefix helper pl-2">help</i>
+                                            </a>   
+                                        </h8>
+                                        <div class="switch pt-4">
+                                            <label>
+                                                Temperatura con retorno constante anual
+                                                <input type="checkbox" id="switch_retorno">
+                                                <span class="lever"></span>
+                                                Temperatura con retorno variable mensual
+                                            </label>
+                                        </div>
+                                        <div class="input-field my-4 col s12" id="t_retorno_cte">
+                                            <a class="tooltipped" data-position="right" data-tooltip="Temperatura establecida (setpoint) para el suministro de fluido">
+                                                <label for="temperatura_retorno" id="id_label_temperatura_retorno">Temperatura de retorno constante: (°C)<i class="material-icons prefix helper pl-2">help</i></label>
+                                            </a>    
+                                            {{form.temperatura_retorno}}
+                                            <span>{{form.temperatura_retorno.errors}}</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col s12 border-box" id="t_retorno_variable">
+                                        <div class="input-field col s12">
+                                            <h7>Temperatura de retorno variable: (°C)
+                                                <a class="tooltipped" data-position="right" data-tooltip="Especificar temperatura de entrada al sistema variable por mes">
+                                                    <label for="temperatura_variable" id="id_label_temperatura_variable"><i class="material-icons prefix helper pl-2">help</i></label>
+                                                </a>    
+                                            </h7>
+                                        </div>
+                                        <div class="input-field col s6">
+                                            <ul >
+                                                <li>   
+                                                    <label for="t_enero" id="id_label_t_enero">Enero:</label>
+                                                    {{form.t_enero}}
+                                                    <span>{{form.t_enero.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Febrero</label>
+                                                    {{form.t_febrero}}
+                                                    <span>{{form.t_febrero.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Marzo</label>
+                                                    {{form.t_marzo}}
+                                                    <span>{{form.t_marzo.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Abril</label>
+                                                    {{form.t_abril}}
+                                                    <span>{{form.t_abril.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Mayo</label>
+                                                    {{form.t_mayo}}
+                                                    <span>{{form.t_mayo.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Junio</label>
+                                                    {{form.t_junio}}
+                                                    <span>{{form.t_junio.errors}}</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="input-field col s6">
+                                            <ul>
+                                                <li>   
+                                                    <label>Julio</label>
+                                                    {{form.t_julio}}
+                                                    <span>{{form.t_julio.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Agosto</label>
+                                                    {{form.t_agosto}}
+                                                    <span>{{form.t_agosto.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Septiembre</label>
+                                                    {{form.t_septiembre}}
+                                                    <span>{{form.t_septiembre.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Octubre</label>
+                                                    {{form.t_octubre}}
+                                                    <span>{{form.t_octubre.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Noviembre</label>
+                                                    {{form.t_noviembre}}
+                                                    <span>{{form.t_noviembre.errors}}</span>
+                                                </li>
+                                                <li>
+                                                    <label>Diciembre</label>
+                                                    {{form.t_diciembre}}
+                                                    <span>{{form.t_diciembre.errors}}</span>
+                                                </li>
+                                            </ul>
+                                        <br>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-field col s12 my-4 border-box">
+                                <div class="input-field my-4 col s4 pg-5">
+                                    <div class="input-field my-2 col s12">
+                                        <a class="tooltipped" data-position="right" data-tooltip="Corresponde a la temperatura de salida del sistema">
+                                            <label for="label_t_entrada" id="id_label_t_entrada">Temperatura de salida: (°C)<i class="material-icons prefix helper pl-2">help</i></label>
+                                        </a>
+                                        {{form.t_salida}}
+                                        <span>{{form.t_salida.errors}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step-actions center">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step">
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-reset" type="reset">
+                                    <i class="material-icons left">clear</i>Reestablecer
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                    Siguiente
+                                    <i class="material-icons right">arrow_forward</i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li class="step card mx-2">
+                    <div class="step-title waves-effect waves-dark">
+                        Esquemas de Integración
+                    </div>
+                    <div class="step-content" id="esq_int">
+                        <div class="row">
+                            <div class="form-field col s12">
+                                <p>Seleccione un esquema de integración:</p>
+                                {% for e in esquema_list %}
+                                <div class="input-field col s6 my-0">
+                                    <div class="row">
+                                        <div class="col s12">
+                                            <label>
+                                                <input name="esq_int" type="radio"/>
+                                                <span>{{e.esquema}} :</span>
+                                                <a class="tooltipped" data-position="bottom" data-tooltip="{{e.siglas_esquema}}">
+                                                    <i class="material-icons prefix helper px-2">help</i> 
+                                                </a> 
+                                            </label>
+                                            
+                                            <div class="col s12">
+                                                <img src="{{e.imagen_esquema.url}}" class="w-100 h-100">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span>{{e.esquema_list.errors}}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="step-actions center">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step">
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-reset" type="reset">
+                                    <i class="material-icons left">clear</i>Reestablecer
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                    Siguiente
+                                    <i class="material-icons right">arrow_forward</i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li class="step card mx-2">
+                    <div class="step-title waves-effect waves-dark">
+                        Descripción del Campo Solar
+                    </div>
+                    <div class="step-content">
+                        <div class="row">
+                            <div class="form-field col s12 ">
+                                <div class="row border-box p-3 mg-3" id="colector">
+                                    <h5> Campo Termosolar: </h5>
+                                    <div class="row border-box p-3 mg-3">
+                                        <h6> Colector Solar</h6>
+                                        <!-- Switch -->
+                                        <div class="switch pt-4">
+                                            <label>
+                                            Seleccione desde la tabla
+                                            <input type="checkbox" id="toogle_switch">
+                                            <span class="lever"></span>
+                                            Ingresar valores personalizados
+                                            </label>
+                                        </div>
+                                        <div class="col s11 px-4 py-4 mg-4" id="tabla_cs">
+                                            {% block 'datatable'%}
+                                            {% include './data_table.html' %}
+                                            {% endblock %}
+                                        </div>
+                                        <div class="input-field col s11 p-2 mg-4" id="i_manual">
+                                            <div class="input-field col s12">
+                                                <h8 class="my-4">Ingrese los parámetros del colector:</h8><br>
+                                                <div class="input-field col m4 s12">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Área de apertura del colector solar (absorbedor)">
+                                                        <label for="area_apertura" id="id_label_area_apertura">Área de apertura: <small>(m<sup>2</sup>)</small><i class="material-icons prefix helper px-2">help</i></label> 
+                                                    </a> 
+                                                    {{form.area_apertura}}
+                                                    <span>{{form.area_apertura.errors}}</span>
+                                                </div>
+                                                <div class="input-field col m4 s12">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Eficiencia óptica del colector - (n<sub>0</sub>)">
+                                                        <label for="eficiencia_optica" id="id_label_eficiencia_optica">Eficiencia Óptica: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a> 
+                                                    {{form.eficiencia_optica}}
+                                                    <span>{{form.eficiencia_optica.errors}}</span>
+                                                </div>
+                                                <div class="input-field col m4 s12">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Flujo de prueba usado en el ensayo del colector">
+                                                        <label for="rango_flujo_prueba" id="id_label_rango_flujo_prueba">Flujo de prueba: <i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.rango_flujo_prueba}}
+                                                    <span>{{form.rango_flujo_prueba.errors}}</span>
+                                                </div>
+                                            </div>
+                                            <div class="input-field col s12 my-2 py-4">
+                                                <div class="input-field my-2 col m6">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Coeficiente de pérdidas lineales - (a<sub>1</sub>)">
+                                                        <label for="coef_per_lineales" id="id_label_coef_per_lineales">Coeficiente de pérdidas lineales: <small>(w/m<sup>2</sup> K)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>   
+                                                    {{form.coef_per_lineales}}
+                                                    <span>{{form.coef_per_lineales.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m6">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Coeficiente de pérdidas cuadráticas - (a<sub>2</sub>)">
+                                                        <label for="coef_per_cuadraticas" id="id_label_coef_per_cuadraticas">Coeficiente de pérdidas cuadráticas: <small>(w/m<sup>2</sup> K<sup>2</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>    
+                                                    {{form.coef_per_cuadraticas}}
+                                                    <span>{{form.coef_per_cuadraticas.errors}}</span>
+                                                </div>
+                                            </div>
+                                            <div class="input-field col s12 my-2 py-4">
+                                                <div class="input-field my-2 col s6 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Modificador de ángulo de incidencia - bo según fórmula en Duffie & Beckman">
+                                                        <label for="iam" id="id_label_iam">IAM:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>   
+                                                    {{form.iam}}
+                                                    <span>{{form.iam.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col s6 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="IAM Longitudinal">
+                                                        <label for="{form.iam_longitudinal}" id="id_label_iam_longitudinal">IAM longitudinal:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>   
+                                                    {{form.iam_longitudinal}}
+                                                    <span>{{form.iam_longitudinal.errors}}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row border-box p-3 mg-3" id="cont_layout">
+                                        <div class="input-field col s12">
+                                            <h6>Layout del campo solar:
+                                                <a class="tooltipped" data-position="right" data-tooltip="Disposición de los colectores considerados en el campo solar">
+                                                <i class="material-icons prefix helper pl-1 pt-2">help</i></a>
+                                            </h6>
+                                            <div class="col s12 mt-2">
+                                                <div class="input-field my-2 col m4 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Baterías de colectores en paralelo">
+                                                        <label for="cantidad_bat" id="id_label_cantidad_bat">N° de baterías:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                        {{form.cantidad_bat}}
+                                                    <span>{{form.cantidad_bat.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Número de colectores en serie">
+                                                        <label for="col_bat" id="id_label_col_bat">N° colectores por batería: <i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                        {{form.col_bat}}
+                                                    <span>{{form.col_bat.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Número total de colectores en el campo solar">
+                                                        <label for="{total_colectores}" id="id_label_total_colectores">Total de colectores: <i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.total_colectores}}
+                                                    <span>{{form.total_colectores.errors}}</span>
+                                                </div>
+                                            </div>
+                                            <div class="col s12">
+                                                <div class="col s12">
+                                                    <div class="input-field col s4">
+                                                        <a class="tooltipped" data-position="bottom" data-tooltip="Superficie estimada necesaria para realizar la instalación.<br>Se asume 30% superior al área de apertura.">
+                                                            <label for="sup_colectores" id="id_label_sup_colectores">Superficie estimada de terreno: (<small>m<sup>2</sup></small>)<i class="material-icons prefix helper px-2">help</i></label>
+                                                        </a>
+                                                        {{form.sup_colectores}}
+                                                        <span>{{form.sup_colectores.errors}}</span>
+                                                    </div>
+                                                    <div class="input-field col s4">
+                                                        <a class="tooltipped" data-position="bottom" data-tooltip="Inclinación de los colectores, medida desde la horizontal">
+                                                        <label for="inclinacion_col" id="id_label_inclinacion_col">Inclinación: (°)<i class="material-icons prefix helper px-2">help</i></label>
+                                                        {{form.inclinacion_col}}
+                                                        <span>{{form.inclinacion_col.errors}}</span>
+                                                    </div>
+                                                    <div class="input-field col s4">
+                                                        <a class="tooltipped" data-position="bottom" data-tooltip="Azimut de los colectores.<br>El norte representa 0º">
+                                                            <label for="azimut" id="id_label_azimut">Azimut: (°) <i class="material-icons prefix helper px-2">help</i></label>
+                                                        </a>
+                                                        {{ form.azimut}}
+                                                        <span>{{form.azimut.errors}}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col s12">
+                                                <div class="input-field col s4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Flujo másico circulando en el campo solar">
+                                                        <label for="flujo_masico" id="id_label_flujo_masico">Flujo másico campo solar:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.flujo_masico}}
+                                                    <span>{{form.flujo_masico.errors}}</span>
+                                                </div>
+                                                <div class="input-field col s3">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Unidades flujo másico en el campo solar">
+                                                        <label for="unidad_flujo_masico" id="id_label_unidad_flujo_masico">Unidad flujo másico:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.unidad_flujo_masico}}
+                                                    <span>{{form.unidad_flujo_masico.errors}}</span>
+                                                </div>
+                                                <div class="input-field col s5">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Fluido de trabajo usado en el campo solar">
+                                                        <label for="tipo_fluido" id="id_label_tipo_fluido">Fluido de trabajo campo solar:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.tipo_fluido}}
+                                                    <span>{{form.tipo_fluido.errors}}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row border-box px-4 py-4 mg-4" id="cont_almacenamiento">
+                                    <div class="input-field col s12 my-1">
+                                        <div class="input-field my-0 col s12">
+                                            <h5>Almacenamiento:</h5>
+                                            <div class="input-field col s12 my-2 py-4">
+                                                <div class="input-field my-2 col m2 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Volumen del estanque de almacenamiento">
+                                                        <label for="id_volumen" id="id_label_volumen">Volumen: (m<sup>3</sup>)<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.volumen}}
+                                                    <span>{{form.volumen.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m2 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Relación de aspecto asumiendo un estanque cilíndrico(Cociente entre altura y diámetro)">
+                                                        <label for="id_relacion_aspecto" id="id_label_relacion_aspecto">Relación de aspecto:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.relacion_aspecto}}
+                                                    <span>{{form.relacion_aspecto.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m3 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Material de construcción del estanque de almacenamiento">
+                                                        <label for="material_almacenamiento" id="id_label_material_almacenamiento">Material de almacenamiento:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.material_almacenamiento}}
+                                                    <span>{{form.material_almacenamiento.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m2 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Material de aislación térmica en el estanque de almacenamiento">
+                                                        <label for="material_aislamiento" id="id_label_material_aislamiento">Material de aislación:<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.material_aislamiento}}
+                                                    <span>{{form.material_aislamiento.errors}}</span>
+                                                </div>
+                                                <div class="input-field my-2 col m2 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Espesor del material de aislación del tanque de almacenamiento">
+                                                        <label for="espesor_aislante" id="id_label_espesor_aislante">Espesor aislante: (mm)<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.espesor_aislante}}
+                                                    <span>{{form.espesor_aislante.errors}}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row border-box px-4 py-4 mx-4 my-4">
+                                    <div class="input-field col s12 my-1">
+                                        <div class="input-field my-0 col s12">
+                                            <h5>Intercambiador:</h5>
+                                            <div class="input-field col s12 my-2 py-4">
+                                                <div class="input-field my-2 col m2 pb-4">
+                                                    <a class="tooltipped" data-position="bottom" data-tooltip="Efectividad estimada del intercambiador de calor">
+                                                        <label for="efectividad" id="id_label_efectividad">Efectividad: (%)<i class="material-icons prefix helper px-2">help</i></label>
+                                                    </a>
+                                                    {{form.efectividad}}
+                                                    <span>{{form.efectividad.errors}}</span>    
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step-actions center">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step">
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-reset" type="reset">
+                                    <i class="material-icons left">clear</i>Reestablecer
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                    Siguiente
+                                    <i class="material-icons right">arrow_forward</i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li class="step card mx-2">
+                    <div class="step-title waves-effect waves-dark">
+                        Parámetros financieros
+                    </div>
+                    <div class="step-content">
+                        <div class="row">
+                            <div class="form-field col s12" id="cont_param_financiero">   
+                                <div class="input-field my-4 col m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Costo unitario del combustible (Pesos Chilenos - CLP)">
+                                        <label for="{form.costo_combustible}" id="id_label_costo_combustible">Costo combustible: <small>($)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>
+                                    {{form.costo_combustible}}
+                                    <span>{{form.costo_combustible.errors}}</span>
+                                </div>
+                                <div class="input-field my-4 col m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Unidad por costo de combustible">
+                                        <label for="{unidad_costo_combustible}" id="id_label_unidad_costo_combustible">Unidad costo combustible:<i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>
+                                    {{form.unidad_costo_combustible}}
+                                    <span>{{form.unidad_costo_combustible.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Costo individual de cada colector, expresado en dólares.">
+                                        <label for="precio_colector" id="id_label_precio_colector">Precio por colector: <small>(USD/colector)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.precio_colector}}
+                                    <span>{{form.precio_colector.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Costo específico del tanque de almacenamiento,<br> expresado en dólares por metro cúbico de capacidad.<br> Valor recomendado: USD3200/m3">
+                                        <label for="costo_tanque" id="id_costo_tanque">Costo Tanque almacenamiento: <small>(USD/m<sup>3</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.costo_tanque}}
+                                    <span>{{form.costo_tanque.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Costo específico de otros gastos como piping, sistema de control, bombas, etc. <br>Expresado en dólares por metro cuadrado de área de apertura del campo solar.<br> Valor recomendado: USD100/m2">
+                                        <label for="balance" id="id_balance">Balance de planta: <small>(USD/m<sup>2</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.balance}}
+                                    <span>{{form.balance.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Costo de instalación expresado como un porcentaje del costo de capital de los equipos.<br> Valor recomendado: 10%">
+                                        <label for="instalacion" id="id_instalacion">Instalación: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.instalacion}}
+                                    <span>{{form.instalacion.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Costo anual de operación y mantenimiento del campo solar,<br> expresado como un porcentaje del costo de capital de los equipos.<br> Valor recomendado: 2%.">
+                                        <label for="operacion" id="id_operacion">Operación y mantenimiento: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.operacion}}
+                                    <span>{{form.operacion.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Tasa de impuesto a la renta.<br>Valor en Chile: 27%">
+                                        <label for="impuesto" id="id_impuesto">Impuesto a la renta: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.impuesto}}
+                                    <span>{{form.impuesto.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Tasa de descuento para el proyecto.<br>Valor recomendado para proyectos solares: 7%">
+                                        <label for="descuento" id="id_descuento">Tasa de descuento: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.descuento}}
+                                    <span>{{form.descuento.errors}}</span>
+                                </div>
+                                <div class="input-field col my-4 m3 s12">
+                                    <a class="tooltipped" data-position="bottom" data-tooltip="Tasa de inflación anual esperada en el período de evaluación<br>(se asume constante en todo el período).<br> Valor recomendado: 3%">
+                                        <label for="inflacion" id="id_inflacion">Inflación: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                    </a>    
+                                    {{form.inflacion}}
+                                    <span>{{form.inflacion.errors}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step-actions center">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step">
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-reset" type="reset">
+                                    <i class="material-icons left">clear</i>Reestablecer
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                    Siguiente
+                                    <i class="material-icons right">arrow_forward</i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li class="step card mx-2">
+                    <div class="step-title waves-effect waves-dark">
+                        Resumen
+                    </div>
+                    <div class="step-content">
+                        <div class="">
+                            <h6>Identificación :</h6>
+                            <hr>
+                            <table>                    
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                </tr>
+                                <tr>
+                                    <td>Nombre simulación</td>
+                                    <td id="nomb_sim_res"></td>                                    
+                                </tr>
+                                <tr>
+                                    <td> Sector Industrial</td>
+                                    <td id="sector_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Aplicación Industrial</td>
+                                    <td id="aplicacion_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Procesos Industriales</td>
+                                    <td id="proceso_res"></td>
+                                </tr>
+                            </table>
+                            <br>
+                            <h6>Ubicación</h6>
+                            <hr>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                </tr>
+                                <tr>
+                                    <td>Ubicación</td>
+                                    <td id="ubicacion_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Latitud </td>
+                                    <td id="latitud_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Longitud</td>
+                                    <td id="longitud_res"></td>
+                                </tr>
+                            </table>
+                            <br>
+                            <h6>Demanda y Procesos</h6>
+                            <hr>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                    <th>Unidad</th>
+                                </tr>
+                                <tr>
+                                    <td>Combustible</td>
+                                    <td id="combustible_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Lunes</td>
+                                    <td id="d_lunes_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Martes</td>
+                                    <td id="d_martes_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Miércoles</td>
+                                    <td id="d_miercoles_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Jueves</td>
+                                    <td id="d_jueves_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Viernes</td>
+                                    <td id="d_viernes_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Sábado</td>
+                                    <td id="d_sabado_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Domingo</td>
+                                    <td id="d_domingo_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Inicio Jornada</td>
+                                    <td id="ini_jornada_res"></td>
+                                    <td>hrs</td>
+                                </tr>
+                                <tr>
+                                    <td> Término Jornada</td>
+                                    <td id="term_jornada_res"></td>
+                                    <td>hrs</td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Anual</td>
+                                    <td id="d_anual_res"></td>
+                                    <td id="unidad_demanda_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Enero</td>
+                                    <td id="d_enero_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Febrero </td>
+                                    <td id="d_febrero_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Marzo </td>
+                                    <td id="d_marzo_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Abril </td>
+                                    <td id="d_abril_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Mayo </td>
+                                    <td id="d_mayo_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Junio </td>
+                                    <td id="d_junio_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Julio </td>
+                                    <td id="d_julio_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Agosto </td>
+                                    <td id="d_agosto_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Septiembre </td>
+                                    <td id="d_septiembre_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Octubre </td>
+                                    <td id="d_octubre_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Noviembre </td>
+                                    <td id="d_noviembre_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Demanda Diciembre </td>
+                                    <td id="d_diciembre_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Potencia Nominal Caldera </td>
+                                    <td id="potencia_res"></td>
+                                    <td id="unidad_potencia_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Presión Caldera </td>
+                                    <td id="presion_res"></td>
+                                    <td id="unidad_presion_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Tipo Caldera </td>
+                                    <td id="tipo_caldera_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Eficiencia Caldera </td>
+                                    <td id="eficiencia_res"></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura desde la red </td>
+                                    <td id="t_entrada_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura retorno constante anual </td>
+                                    <td id="t_anual_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Enero </td>
+                                    <td id="t_enero_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Febrero </td>
+                                    <td id="t_febrero_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Marzo </td>
+                                    <td id="t_marzo_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Abril </td>
+                                    <td id="t_abril_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Mayo </td>
+                                    <td id="t_mayo_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Junio </td>
+                                    <td id="t_junio_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Julio </td>
+                                    <td id="t_julio_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Agosto </td>
+                                    <td id="t_agosto_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Septiembre </td>
+                                    <td id="t_septiembre_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Octubre </td>
+                                    <td id="t_octubre_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Noviembre </td>
+                                    <td id="t_noviembre_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura variable mes Diciembre </td>
+                                    <td id="t_diciembre_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                                <tr>
+                                    <td> Temperatura de salida </td>
+                                    <td id="t_salida_res"></td>
+                                    <td> ° C </td>
+                                </tr>
+                            </table>
+                            <br>
+                            <h6>Esquemas de Integración</h6>
+                            <hr>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                </tr>
+                                <tr>
+                                    <td>Esquema de Integración</td>
+                                    <td id="esquema_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Imagen esquema </td>
+                                    <td id="imagen_res"></td>
+                                </tr>
+                            </table>
+                            <br>
+                            <h6>Campo Termosolar</h6>
+                            <hr>
+                            <h8> Parámetros del colector</h8>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                    <th>Unidad</th>
+                                </tr>
+                                <tr>
+                                    <td>Área de apertura</td>
+                                    <td id="area_apertura_res"></td>
+                                    <td> m<sup>2 </sup></td>
+                                </tr>
+                                <tr>
+                                    <td> Eficiencia óptica </td>
+                                    <td id="eficiencia_optica_res"></td>
+                                    <td> % </td>
+                                </tr>
+                                <tr>
+                                    <td> Flujo de prueba </td>
+                                    <td id="rango_flujo_prueba_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Coeficiente de pérdidas lineales </td>
+                                    <td id="coef_per_lineales_res"></td>
+                                    <td> w/m<sup>2</sup>K </td>
+                                </tr>
+                                <tr>
+                                    <td> Coeficiente de pérdidas cuadráticas </td>
+                                    <td id="coef_per_cuadraticas_res"></td>
+                                    <td> w/m<sup>2</sup>K<sup>2</sup></td>
+                                </tr>
+                                <tr>
+                                    <td> IAM </td>
+                                    <td id="iam_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> IAM Longitudinal </td>
+                                    <td id="iam_longi_res"></td>
+                                    <td> </td>
+                                </tr>
+                            </table>
+                            <br>
+                            <hr>
+                            <h8> Layout Campo Solar </h8>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                    <th>Unidad</th>
+                                </tr>
+                                <tr>
+                                    <td>Número de baterías</td>
+                                    <td id="cant_bat_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Número de colectores por batería </td>
+                                    <td id="col_bat_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Total de colectores </td>
+                                    <td id="total_colectores_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Superficie estimada de terreno </td>
+                                    <td id="sup_colectores_res"></td>
+                                    <td> m<sup>2</sup> </td>
+                                </tr>
+                                <tr>
+                                    <td> Inclinación del colector </td>
+                                    <td id="inclinacion_res"></td>
+                                    <td> ° </td>
+                                </tr>
+                                <tr>
+                                    <td> Azimut </td>
+                                    <td id="azimut_res"></td>
+                                    <td> ° </td>
+                                </tr>
+                                <tr>
+                                    <td> Flujo másico solar </td>
+                                    <td id="flujo_masico_res"></td>
+                                    <td id="unidad_flujo_masico_res"> </td>
+                                </tr>
+                                <tr>
+                                    <td> Fluido de trabajo del campo solar </td>
+                                    <td id="fluido_res"></td>
+                                    <td> </td>
+                                </tr>
+                            </table>
+                            <br>
+                            <hr>
+                            <h8> Almacenamiento</h8>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                    <th>Unidad</th>
+                                </tr>
+                                <tr>
+                                    <td>Volumen</td>
+                                    <td id="volumen_res"></td>
+                                    <td> m<sup>3</sup></td>
+                                </tr>
+                                <tr>
+                                    <td> Relación de aspecto </td>
+                                    <td id="relacion_aspecto_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Material almacenamiento </td>
+                                    <td id="material_almacenamiento_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Material aislación </td>
+                                    <td id="material_aislacion_res"></td>
+                                    <td> </td>
+                                </tr>
+                                <tr>
+                                    <td> Espesor del aislante </td>
+                                    <td id="espesor_res"></td>
+                                    <td> mm </td>
+                                </tr>
+                            </table>
+                            <br>
+                            <hr>
+                            <h8> Intercambiador </h8>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                    <th>Unidad</th>
+                                </tr>
+                                <tr>
+                                    <td> Efectividad </td>
+                                    <td id="efectividad_res"></td>
+                                    <td> % </td>
+                                </tr>
+                            </table>
+                            <br>
+                            <hr>
+                            <h8> Parámetros financieros </h8>
+                            <table>
+                                <tr>
+                                    <th>Parámetro</th>
+                                    <th>Valor</th>
+                                    <th>Unidad</th>
+                                </tr>
+                                <tr>
+                                    <td>Costo Combustible</td>
+                                    <td id="costo_combustible_res"></td>
+                                    <td id= "unidad_costo_combustible_res"></td>
+                                </tr>
+                                <tr>
+                                    <td> Precio por colector </td>
+                                    <td id="precio_colector_res"></td>
+                                    <td id="unidad_costo_combustible_res"></td>
+                                </tr>
+                            </table>
+                        </div>    
+                        <div class="step-actions center">
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light previous-step">
+                                    <i class="material-icons left">arrow_back</i>Anterior
+                                </button>
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button class="btn btn-light"  type="button">
+                                    <i class="material-icons left">business_center</i>Descargar resumen
+                                </button>   
+                            </div>
+                            <div class="col m4 s12 my-3">
+                                <button type="submit" class="waves-effect waves-dark btn" id='btn_simular'>
+                                    <i class="material-icons right">send</i>
+                                    Simular
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </form>
+        <!-- Modal Structure -->
+        <div id="modal1" class="modal">
+            <div class="modal-content">
+            <h4>Modal Header</h4>
+            <p>A bunch of text</p>
+            </div>
+            <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">Agree</a>
+            </div>
+        </div>
+    </div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="{% static 'js/mstepper.js' %}"></script>
+<script src="{% static 'js/stepper-forms.js' %}"></script>
+<script src="{% static 'js/g-maps.js' %}" async></script>
+<script src="{% static 'js/form.js' %}" async></script>
+<!--<script>
+    $('select2').select2({
+
+    });
+</script>-->
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvpzsc-Ukvfq3x5zdC9ByehSuk7HkpmRU&callback=initMap"></script>
+ 
+{% endblock %}

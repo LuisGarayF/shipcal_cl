@@ -1,0 +1,290 @@
+{% extends 'base_results.html'%}
+{% load static %}
+
+{% block content %}
+
+<div class="container">
+    <div class="row">
+        <div class="col s12">
+            <h4> Resultados </h4>
+            <!--{{results}}-->
+            <!--{{Result}}-->
+
+            <div class="col s12">
+                <div class="">
+                    <h6>Identificación :</h6>
+                    <hr>
+                    <table>                    
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Valor</th>
+                        </tr>
+                        <tr>
+                            <td>Nombre simulación</td>
+                            <td>{{results.sim_name}}</td>                                    
+                        </tr>
+                        <tr>
+                            <td> Sector Industrial</td>
+                            <td>{{results.sector}}</td>
+                        </tr>
+                        <tr>
+                            <td> Aplicación Industrial</td>
+                            <td>{{results.application}}</td>
+                        </tr>
+                        <tr>
+                            <td> Procesos Industriales</td>
+                            <td></td>
+                        </tr>
+                    </table>
+                    <br>
+                    <h6>Ubicación</h6>
+                    <hr>
+                    <table>
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Valor</th>
+                        </tr>
+                        <tr>
+                            <td>Ubicación</td>
+                            <td>{{results.location}}</td>
+                        </tr>
+                        <tr>
+                            <td> Latitud </td>
+                            <td>{{results.latitude}}</td>
+                        </tr>
+                        <tr>
+                            <td> Longitud</td>
+                            <td>{{results.longitude}}</td>
+                        </tr>
+                    </table>
+                    <br>
+                    <h6>Demanda y Procesos</h6>
+                    <hr>
+                    <table>
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Valor</th>
+                            <th>Unidad</th>
+                        </tr>
+                        <tr>
+                            <td>Combustible</td>
+                            <td>{{results.fuel_name}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Inicio operación</td>
+                            <td>{{results.operation_start}}</td>
+                            <td>hrs</td>
+                        </tr>
+                        <tr>
+                            <td>Fin operación</td>
+                            <td>{{results.operation_end}}</td>
+                            <td>hrs</td>
+                        </tr>
+                        <tr>
+                            <td> Demanda anual</td>
+                            <td>{{results.yearly_demand}}</td>
+                            <td>{{results.yearly_demand_unit}}</td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Enero</td>
+                            <td>{{results.demand_january}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Febrero </td>
+                            <td>{{results.demand_february}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Marzo </td>
+                            <td>{{results.demand_march}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Abril </td>
+                            <td>{{results.demand_april}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Mayo </td>
+                            <td>{{results.demand_may}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Junio </td>
+                            <td>{{results.demand_june}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Julio </td>
+                            <td>{{results.demand_july}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Agosto </td>
+                            <td>{{results.demand_august}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Septiembre </td>
+                            <td>{{results.demand_september}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Octubre </td>
+                            <td>{{results.demand_october}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Noviembre </td>
+                            <td>{{results.demand_november}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Demanda Diciembre </td>
+                            <td>{{results.demand_december}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Potencia Nominal Caldera </td>
+                            <td>{{results.boiler_nominal_power}}</td>
+                            <td>{{results.boiler_nominal_power_units}}</td>
+                        </tr>
+                        <tr>
+                            <td> Presión Caldera </td>
+                            <td>{{results.boiler_pressure}}</td>
+                            <td>{{results.boiler_pressure_units}}</td>
+                        </tr>
+                        <tr>
+                            <td> Tipo Caldera </td>
+                            <td>{{results.boiler_type}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Eficiencia Caldera </td>
+                            <td>{{results.boiler_efficiency}}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura desde la red </td>
+                            <td>{{results.mains_inlet_temperature}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura retorno constante anual </td>
+                            <td>{{results.return_inlet_temperature}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Enero </td>
+                            <td>{{results.temperature_january}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Febrero </td>
+                            <td>{{results.temperature_february}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Marzo </td>
+                            <td>{{results.temperature_march}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Abril </td>
+                            <td>{{results.temperature_april}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Mayo </td>
+                            <td>{{results.temperature_may}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Junio </td>
+                            <td>{{results.temperature_june}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Julio </td>
+                            <td>{{results.temperature_july}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Agosto </td>
+                            <td>{{results.temperature_august}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Septiembre </td>
+                            <td>{{results.temperature_september}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Octubre </td>
+                            <td>{{results.temperature_october}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Noviembre </td>
+                            <td>{{results.temperature_november}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura variable mes Diciembre </td>
+                            <td>{{results.temperature_december}}</td>
+                            <td> ° C </td>
+                        </tr>
+                        <tr>
+                            <td> Temperatura de salida </td>
+                            <td>{{results.outlet_temperature}}</td>
+                            <td> ° C </td>
+                        </tr>
+                    </table>
+                    <br>
+                    <h6>Esquemas de Integración</h6>
+                    <hr>
+                    <table>
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Esquema</th>
+                            <th>Siglas<th>
+                        </tr>
+                        <tr>
+                            <td>Esquema de Integración</td>
+                            <td>{{results.integration_scheme}}</td>
+                            <td>{{results.integration_scheme_initials}}</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td>
+                                <img src="{% static 'img/esquemas_integracion/SL_L_PD.png' %}">
+                            </td>
+                            <td></td>
+                        </tr>
+                    </table>
+                    <br>
+                </div>
+            </div>
+        </div>
+        <h6> Gráfico Mapa de calor </h6>
+        <br>
+        <img src="{% static 'img/heatmap_graph.png' %}">
+        <!-- Verificar visualizacion correcta del bloque -->
+        {% block 'heatmap_graph'%}
+        {{  bokeh_graph_div| safe}}
+        {% include './heatmap_graph.html' %}
+        {% endblock %} 
+        {% block scripts %}
+        {{ bokeh_graph_script | safe }}
+        {% endblock %}
+    </div>
+    <div class="row">
+        <button type="button" class="btn waves-effect waves">Guadar PDF</button>
+        <button type="button" class="btn waves-effect waves">Volver al Dashboard</button>
+    </div>     
+</div>
+
+
+{% endblock %}

@@ -1,0 +1,71 @@
+{%extends 'base.html'%}
+{% load static %}
+{% block title %} Iniciar Sesión {% endblock title %}
+{% block content %} 
+
+<main class="section container">
+   <div class="row card-panel p-5 mg-6" style="width:500px !important; height:auto; position:relative; top: 20; left: 300px;">
+      <div class="col s12">
+         <div class="row">
+            <div class="col S12">
+               <div class="h-100 center">
+                  <h4 class="center"> Iniciar Sesión </h4>
+               </div>
+            </div>
+         </div>
+         <div id="login-page" class="row">
+            <div class="col s12">
+               <form class="user"  method="POST" action="{% url 'login' %}">
+                  {% csrf_token %}
+                  <div class="row">
+                  </div>
+                  <div class="row">
+                     <div class="input-field col s12">
+                        <i class="material-icons prefix">perm_identity</i>
+                        {{ form.username}}
+                        <label for="{{ form.username.id_for_label }}">Usuario</label>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="input-field col s12">
+                        <i class="material-icons prefix">lock_outline</i>
+                        {{ form.password}}
+                        <label for="{{ form.password.id_for_label }}">Contraseña</label>
+                     </div>
+                  </div>
+                  <div class="row mx-2 rememberMeContainer">          
+                     <div class="checkbox mt-3">
+                        <label><input type="checkbox" value="remember-me" class="rememberMeInput switch"><span>Recordarme</span></label>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="input-field col s12 center">
+                        <button class="btn waves-effect waves-light" type="submit">Iniciar Sesión</button>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="input-field col s6 m6 l6">
+                        <p class="margin medium-small"><a href="{% url 'registro' %}">Registrarse</a></p>
+                     </div>
+                     <div class="input-field col s6 m6 l6">
+                        <p class="margin right-align medium-small"><a href="#">Olvidé mi contraseña?</a></p>
+                     </div>          
+                  </div>
+                  {% if form.errors %}
+                  <p class="red-text center">Su usuario o contraseña no son correctos. Por favor intente nuevamente.</p>
+                  {% endif %}
+
+                  {% if next %}
+                     {% if user.is_authenticated %}
+                     <p>Ingresando.</p>
+                     {% else %}
+                     <p class="red-text center">Su cuenta no tiene acceso a esta página. Para acceder, por favor ingrese con una cuenta que tenga los privilegios.</p>
+                     {% endif %}
+                  {% endif %}
+               </form>
+            </div>
+         </div>
+      </div>
+   </div>
+</main>
+{% endblock content %}
