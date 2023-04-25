@@ -44,16 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 });
-
-
-       
+      
 // Inputs
-
-let sector = document.getElementById('id_sector');
-let aplicacion = document.getElementById('id_aplicacion');
-let nombre_simulacion = document.getElementById('id_nombre_simulacion');
-let procesos = document.getElementById('id_procesos');
-let demanda_anual = document.getElementById('id_demanda_anual');
 
 let $area = document.getElementById('id_area_apertura');// Area de apertura de colector
 let $col_b = document.getElementById('id_col_bat');// Colectores por bateria
@@ -61,16 +53,10 @@ let $cant_bat = document.getElementById('id_cantidad_bat');// Cantidad de bateri
 let sup_col = document.getElementById('id_sup_colectores'); // Superficie colectores
 let tot_col = document.getElementById('id_total_colectores'); // Total de colectores
 
-const ubicacion = document.getElementById('id_nombre_ubicacion');
-const latitud = document.getElementById('id_latitud');
-const longitud = document.getElementById('id_longitud');
 const combustible = document.getElementById('id_combustible');
 const unidad_demanda = document.getElementById('id_unidad_demanda');
 const ini_jornada = document.getElementById('id_ini_jornada');
 const term_jornada = document.getElementById('id_term_jornada');
-
-
-
 
 // Inputs Temperaturas //
 let t_red = document.getElementById('id_temperatura_red'); // Input temperatura desde la red
@@ -150,11 +136,6 @@ let cont_param_caldera = document.getElementById('cont_param_caldera');      // 
 let cont_almacenamiento = document.getElementById('cont_almacenamiento');    // Contenedor almacenamiento
 let cont_param_financiero = document.getElementById('cont_param_financiero');// Contenedor parametros financieros
 
-
-
-
-
-
 //-----------------------//
 //       Resumen         //
 //-----------------------//
@@ -165,22 +146,9 @@ btn_simular.addEventListener('click', (e)=>{
     console.log('Simulando...');
 });
 
-
-// Resumen Datos Simulacion //
-const nomb_sim_res = document.getElementById('nomb_sim_res');
-const sector_res = document.getElementById('sector_res');
-const aplicacion_res = document.getElementById('aplicacion_res');
-const procesos_res = document.getElementById('procesos_res');
-
-// Resumen Datos Ubicación //
-
-const ubicacion_res = document.getElementById('ubicacion_res');
-const latitud_res = document.getElementById('latitud_res');
-const longitud_res = document.getElementById('longitud_res');
-
 // Campo Resumen Demandas //
 
-const d_anual_res = document.getElementById('d_anual_res'); //Demanda anual
+//const d_anual_res = document.getElementById('d_anual_res'); //Demanda anual
 
 // Demandas Mensuales //
 
@@ -255,13 +223,9 @@ const material_almacenamiento_res = document.getElementById('material_almacenami
 const material_aislacion_res = document.getElementById('material_aislacion_res');
 const espesor_res = document.getElementById('espesor_res');
 const efectividad_res = document.getElementById('efectividad_res');
-
 const costo_combustible_res = document.getElementById('costo_combustible_res');
 const unidad_costo_combustible_res = document.getElementById('unidad_costo_combustible_res');
 const precio_colector_res = document.getElementById('precio_colector_res');
-
-
-
 
 /* Cálculo Superficie estimada y total de colectores */
 
@@ -459,62 +423,62 @@ cont_demanda_mensual.addEventListener('change', (e)=> {
         
         if (e.target.id == 'id_demanda_enero'){
             let d_enero = parseFloat(demanda_enero.value); //Valor demanda enero
-            d_enero_res.innerText = demanda_enero.value;
+            //d_enero_res.innerText = demanda_enero.value;
             demanda_mes.push(d_enero);
         }
         if (e.target.id == 'id_demanda_febrero'){
             let d_febrero = parseFloat(demanda_febrero.value); //Valor demanda febrero
-            d_febrero_res.innerText = demanda_febrero.value;
+            //d_febrero_res.innerText = demanda_febrero.value;
             demanda_mes.push(d_febrero);
         }
         if (e.target.id == 'id_demanda_marzo'){
             let d_marzo = parseFloat(demanda_marzo.value); //Valor demanda marzo
-            d_marzo_res.innerText = demanda_marzo.value;
+            //d_marzo_res.innerText = demanda_marzo.value;
             demanda_mes.push(d_marzo);
         }
         if (e.target.id == 'id_demanda_abril'){
             let d_abril = parseFloat(demanda_abril.value); //Valor demanda abril
-            d_abril_res.innerText = demanda_abril.value;
+            //d_abril_res.innerText = demanda_abril.value;
             demanda_mes.push(d_abril);
         }
         if (e.target.id == 'id_demanda_mayo'){
             let d_mayo = parseFloat(demanda_mayo.value); //Valor demanda mayo
-            d_mayo_res.innerText = demanda_mayo.value;
+            //d_mayo_res.innerText = demanda_mayo.value;
             demanda_mes.push(d_mayo);
         }
         if (e.target.id == 'id_demanda_junio'){
             let d_junio = parseFloat(demanda_junio.value); //Valor demanda junio
-            d_junio_res.innerText = demanda_junio.value;
+            //d_junio_res.innerText = demanda_junio.value;
             demanda_mes.push(d_junio);
         }
         if (e.target.id == 'id_demanda_julio'){
             let d_julio = parseFloat(demanda_julio.value); //Valor demanda julio
-            d_julio_res.innerText = demanda_julio.value;
+            //d_julio_res.innerText = demanda_julio.value;
             demanda_mes.push(d_julio);
         }
         if (e.target.id == 'id_demanda_agosto'){
             let d_agosto = parseFloat(demanda_agosto.value); //Valor demanda agosto
-            d_agosto_res.innerText = demanda_agosto.value;
+            //d_agosto_res.innerText = demanda_agosto.value;
             demanda_mes.push(d_agosto);
         }
         if (e.target.id == 'id_demanda_septiembre'){
             let d_septiembre = parseFloat(demanda_septiembre.value); //Valor demanda septiembre
-            d_septiembre_res.innerText = demanda_septiembre.value;
+            //d_septiembre_res.innerText = demanda_septiembre.value;
             demanda_mes.push(d_septiembre);
         }
         if (e.target.id == 'id_demanda_octubre'){
             let d_octubre = parseFloat(demanda_octubre.value); //Valor demanda octubre
-            d_octubre_res.innerText = demanda_octubre.value;
+            //d_octubre_res.innerText = demanda_octubre.value;
             demanda_mes.push(d_octubre);
         }
         if (e.target.id == 'id_demanda_noviembre'){
             let d_noviembre = parseFloat(demanda_noviembre.value); //Valor demanda noviembre
-            d_noviembre_res.innerText = demanda_noviembre.value;
+            //d_noviembre_res.innerText = demanda_noviembre.value;
             demanda_mes.push(d_noviembre);
         }
         if (e.target.id == 'id_demanda_diciembre'){
             let d_diciembre = parseFloat(demanda_diciembre.value); //Valor demanda diciembre
-            d_diciembre_res.innerText = demanda_diciembre.value;
+            //d_diciembre_res.innerText = demanda_diciembre.value;
             demanda_mes.push(d_diciembre);
         }
         calculo_demanda_anual(demanda_mes);
@@ -532,6 +496,45 @@ function calculo_demanda_anual(demanda_mes) {
 }
 
 
+// Ubicacion
+
+function ubicacionPredefinida() {
+    const select = document.getElementById("ubicaciones");
+    const selectedValue = select.options[select.selectedIndex].value;
+    const url = "{% url 'cargar_mapa' %}";
+    const csrf_token = document.getElementsByName("csrfmiddlewaretoken")[0].value;
+  
+    const data = {
+      csrfmiddlewaretoken: csrf_token,
+      ubicacion: selectedValue,
+    };
+  
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-type": "application/json",
+        "X-CSRFToken": csrf_token,
+      },
+      body: JSON.stringify(data),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.result) {
+          const latitud = parseFloat(data.latitud);
+          const longitud = parseFloat(data.longitud);
+          const latLng = new google.maps.LatLng(latitud, longitud);
+          map.setCenter(latLng);
+          marker.setPosition(latLng);
+          document.getElementById("id_latitud").value = latitud.toFixed(2);
+          document.getElementById("id_longitud").value = longitud.toFixed(2);
+        } else {
+          alert("Error al cargar la ubicación predefinida.");
+        }
+      })
+      .catch((error) => console.error(error));
+  }
+  
+
 cont_ubica.addEventListener('change', (e)=> {
     console.log(e.target.tagName);
     console.log(e.target.value);
@@ -548,7 +551,11 @@ cont_ubica.addEventListener('change', (e)=> {
     }
     if (e.target && e.target.tagName === 'SELECT'){
         if (e.target.id == 'id_nombre_ubicacion'){
-            return (ubicacion_res.value = e.target.value);
+            if (e.target.value === 'predefinida') { // Si se selecciona la opción "Predefinida"
+                ubicacionPredefinida(); // Llama a la función para mostrar la ubicación predefinida
+            } else {
+                return (ubicacion_res.value = e.target.value);
+            }
         }
     }
 });

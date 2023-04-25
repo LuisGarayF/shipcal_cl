@@ -1,4 +1,4 @@
-from django.shortcuts import render,redirect
+from django.shortcuts import render,redirect, get_object_or_404
 import os
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -126,7 +126,22 @@ def update_aplicacion(request):
         aplicacion_list.append({'id': aplicacion.id, 'name': aplicacion.aplicacion})
     print(aplicacion_list)
     
-    return JsonResponse(aplicacion_list, safe=False)       
+    return JsonResponse(aplicacion_list, safe=False)
+
+# Cargar mapas
+# 
+def cargar_mapa(request):
+    ubicacion_nombre = request.POST.get('ubicacion')
+
+    ubicacion = get_object_or_404(Ubicacion, nombre_ubicacion=ubicacion_nombre)
+
+    response_data = {
+        'result': True,
+        'latitud': str(ubicacion.latitud),
+        'longitud': str(ubicacion.longitud),
+    }
+
+    return JsonResponse(response_data)       
 
 
 @login_required
@@ -137,15 +152,35 @@ def simulacion(request):
     
     
     if request.method == 'POST':
-        form = SimForm(request.POST)
+        form = SimForm(request.POST, request.FILES)
         if form.is_valid():
             nombre_simulacion = form.cleaned_data['nombre_simulacion']
             form.aplicacion_choices()
             sector = form.cleaned_data['sector']
             aplicacion = form.cleaned_data['aplicacion']
             nombre_ubicacion = form.cleaned_data['nombre_ubicacion']
-            latitud = form.cleaned_data['latitud']
-            longitud = form.cleaned_data['longitud']
+            # Obtener la ubicación seleccionada
+            ubicacion = get_object_or_404(Ubicacion, nombre_ubicacion=nombre_ubicacion)
+
+           # Si se ingresaron manualmente la latitud y longitud, se guardan en la ubicación personalizada
+            if form.cleaned_data['latitud'] and form.cleaned_data['longitud']:
+                ubicacion.latitud_personalizada = form.cleaned_data['latitud']
+                ubicacion.longitud_personalizada = form.cleaned_data['longitud']
+                ubicacion.save()
+
+                # Se obtienen las coordenadas de la ubicación (ya sea predeterminada o personalizada)
+                latitud = ubicacion.latitud_personalizada or ubicacion.latitud
+                longitud = ubicacion.longitud_personalizada or ubicacion.longitud
+
+                # Se devuelve la respuesta en formato JSON
+                response_data = {
+                    'result': True,
+                    'latitud': str(latitud),
+                    'longitud': str(longitud),
+                }
+                return JsonResponse(response_data)
+
+            esquema = form.cleaned_data['esquema']
             combustible = form.cleaned_data['combustible']
             demanda_anual = form.cleaned_data['demanda_anual']
             unidad_demanda = form.cleaned_data['unidad_demanda']
@@ -216,8 +251,9 @@ def simulacion(request):
             iam_longitudinal = form.cleaned_data['iam_longitudinal']
             
             
+            
 
-            raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,
+            raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,'shema': esquema,
                            'latitude': latitud, 'longitude': longitud, 'fuel_name': combustible, 'operation_start': ini_jornada, 'operation_end': term_jornada, 'yearly_demand': demanda_anual, 'yearly_demand_unit': unidad_demanda,
                            'demand_monday': demanda_lun, 'demand_tuesday': demanda_mar, 'demand_wednesday': demanda_mie,
                            'demand_thursday': demanda_jue, 'demand_friday': demanda_vie, 'demand_saturday': demanda_sab, 'demand_sunday':  demanda_dom, 'demand_january': demanda_enero,
@@ -234,7 +270,7 @@ def simulacion(request):
                            'field_mass_flow': flujo_masico, 'field_mass_flow_units': unidad_flujo_masico, 'fluid': tipo_fluido, 'field_mass_flow_range': rango_flujo_prueba,
                            'iam': iam, 'tank_volume': volumen, 'tank_AR': relacion_aspecto, 'tank_material': material_almacenamiento, 'tank_isulation_material': material_aislamiento,
                            'HX_eff': efectividad, 'fuel_cost': costo_combustible, 'fuel_cost_units': unidad_costo_combustible, 'boiler_efficiency': eficiencia_caldera}
-           
+            
 
             form = SimForm(nombre_simulacion=nombre_simulacion, sector=sector, aplicacion=aplicacion)
             form.save()
@@ -248,7 +284,7 @@ def simulacion(request):
             #result_json = JsonResponse(raw_results)
             
             results_json = json.dumps(results)
-
+            
             return render(request, 'results.html', {'results': results_json})
 
         else:
@@ -256,7 +292,7 @@ def simulacion(request):
     else:
         form = SimForm()
 
-    return render(request, 'simulacion.html', {'form': form, 'datos': datos, 'profile':profile})
+    return render(request, 'simulacion.html', {'form': form, 'datos': datos, 'profile':profile, 'esquema_list': esquema_list})
 
 
 # def resultados(request,Result):

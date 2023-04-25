@@ -61,9 +61,11 @@ class SimForm(forms.ModelForm):
             self.fields['aplicacion'].queryset = Aplicacion.objects.filter(sector_id=sector_id)
         
     
-    nombre_ubicacion = forms.ModelChoiceField(queryset=Ubicacion.objects.all(), to_field_name='nombre_ubicacion', widget=forms.Select(attrs={'class': 'form-select'}), initial="Santiago")
-    latitud = forms.FloatField(widget=forms.NumberInput(attrs={'step': '0.01'}))
-    longitud = forms.FloatField(widget=forms.NumberInput(attrs={'step': '0.01'}))
+    nombre_ubicacion = forms.ModelChoiceField(queryset=Ubicacion.objects.all(), to_field_name='nombre_ubicacion',required=False, widget=forms.Select(attrs={'class': 'form-select'}), initial="Santiago")
+    latitud = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'step': '0.01'}))
+    longitud = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'step': '0.01'}))
+    latitud_personalizada = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'step': '0.01'}))
+    longitud_personalizada = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'step': '0.01'}))
     combustible =forms.ModelChoiceField(queryset=Combustible.objects.all(), to_field_name='combustible', widget=forms.Select(attrs={'class': 'form-select'}), required=False, empty_label=" ", initial="Diesel")
     ini_jornada = forms.ModelChoiceField(queryset=Inicio_Jornada.objects.all(), to_field_name='ini_jornada', widget=forms.Select(attrs={'class': 'form-select'}), required=False, empty_label=" ", initial="00:00")
     term_jornada = forms.ModelChoiceField(queryset=Termino_Jornada.objects.all(), to_field_name='term_jornada', widget=forms.Select(attrs={'class': 'form-select'}), required=False, empty_label=" ", initial="23:30") 
@@ -97,6 +99,7 @@ class SimForm(forms.ModelForm):
     t_noviembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
     t_diciembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
     siglas_esquema = forms.CharField(required=False,widget=forms.TextInput(attrs={'readonly':'readonly'}))
+    imagen_esquema = forms.ImageField(label="Imagen")
     
     
 
@@ -104,3 +107,15 @@ class SimForm(forms.ModelForm):
     class Meta:
         model = FormSim
         fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        nombre_ubicacion = cleaned_data.get('nombre_ubicacion')
+        latitud_personalizada = cleaned_data.get('latitud_personalizada')
+        longitud_personalizada = cleaned_data.get('longitud_personalizada')
+        
+        if not nombre_ubicacion and not (latitud_personalizada and longitud_personalizada):
+            raise forms.ValidationError("Debe seleccionar una ubicación o especificar la latitud y longitud personalizadas.")
+        
+        if nombre_ubicacion and (latitud_personalizada or longitud_personalizada):
+            raise forms.ValidationError("No puede seleccionar una ubicación y especificar la latitud y longitud personalizadas al mismo tiempo.")

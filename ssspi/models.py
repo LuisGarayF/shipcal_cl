@@ -203,6 +203,10 @@ class Ubicacion(models.Model):
         null=False, blank=False, max_length=50, verbose_name="Latitud")
     longitud = models.FloatField(
         null=False, blank=False, max_length=50, verbose_name="Longitud")
+    latitud_personalizada = models.FloatField(
+        null=True, blank=True, max_length=50, verbose_name="Latitud Personalizada")
+    longitud_personalizada = models.FloatField(
+        null=True, blank=True, max_length=50, verbose_name="Longitud Personalizada")
 
     class Meta:
         verbose_name_plural = 'Ubicaciones'
@@ -210,6 +214,7 @@ class Ubicacion(models.Model):
 
     def __str__(self):
         return f'{self.nombre_ubicacion}'
+    
 
 
 class Esquema(models.Model):
@@ -475,5 +480,6 @@ class FormSim(models.Model):
         db_table = 'FormSim'
         verbose_name = "simulacion"
         verbose_name_plural = 'simulaciones'
+        
     def __str__(self):
         return f'{self.nombre_simulacion}' 

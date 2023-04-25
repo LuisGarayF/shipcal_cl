@@ -73,19 +73,18 @@
                                 </script>
                                 <script type="text/javascript" src="{% static 'js/apiern.js' %}"></script>
                                 
-                                <div class="input-field col m4 s12">
+                                <div class="input-field col m6 s12">
                                     <a class="tooltipped" data-position="right" data-tooltip="Sector industrial en el que se encuentra la industria evaluada">
                                         <label id="id_label_sector" class="active"> Sector Industrial:  <i class="material-icons prefix helper pl-2">help</i></label>
                                     </a>
                                     {{ form.sector }}
                                     <span>{{form.sector.errors}}</span>
                                 </div>
-                                <div class="input-field col m4 s12">
+                                <div class="input-field col m6 s12">
                                     <a class="tooltipped" data-position="right" data-tooltip="Opciones de aplicación segun sector industrial">
                                         <label for="id_label_aplicacion" class="active" id="label_aplicacion"> Aplicación: <i class="material-icons prefix helper pl-2">help</i> </label>
                                     </a>
                                     {{ form.aplicacion }}
-                                    <!--<<select name="aplicacion" class="browser-default" id="id_aplicacion" tabindex="-1" onchange="procesos_choices()"></select>-->
                                     <span>{{form.aplicacion.errors}}</span>
                                 </div>
                             </div>
@@ -602,7 +601,7 @@
                                     <div class="row">
                                         <div class="col s12">
                                             <label>
-                                                <input name="esq_int" type="radio"/>
+                                                <input name="esquema" type="radio" value="{{ e.id }}"/>
                                                 <span>{{e.esquema}} :</span>
                                                 <a class="tooltipped" data-position="bottom" data-tooltip="{{e.siglas_esquema}}">
                                                     <i class="material-icons prefix helper px-2">help</i> 
@@ -610,7 +609,7 @@
                                             </label>
                                             
                                             <div class="col s12">
-                                                <img src="{{e.imagen_esquema.url}}" class="w-100 h-100">
+                                                <img src="{{e.imagen_esquema.url}}" class="w-100 h-100" alt="{{ e.esquema }}" id="img_esquema">
                                             </div>
                                         </div>
                                     </div>
@@ -619,7 +618,6 @@
                                 {% endfor %}
                             </div>
                         </div>
-                        
                         <div class="step-actions center">
                             <div class="col m4 s12 my-3">
                                 <button class="btn btn-light previous-step">
@@ -976,7 +974,7 @@
                                 </button>
                             </div>
                             <div class="col m4 s12 my-3">
-                                <button class="waves-effect waves dark btn btn-primary next-step">
+                                <button class="waves-effect waves dark btn btn-primary next-step final-step">
                                     Siguiente
                                     <i class="material-icons right">arrow_forward</i>
                                 </button>
@@ -1008,10 +1006,6 @@
                                 <tr>
                                     <td> Aplicación Industrial</td>
                                     <td id="aplicacion_res"></td>
-                                </tr>
-                                <tr>
-                                    <td> Procesos Industriales</td>
-                                    <td id="proceso_res"></td>
                                 </tr>
                             </table>
                             <br>
@@ -1478,11 +1472,56 @@
 <script src="{% static 'js/stepper-forms.js' %}"></script>
 <script src="{% static 'js/g-maps.js' %}" async></script>
 <script src="{% static 'js/form.js' %}" async></script>
-<!--<script>
-    $('select2').select2({
+<script>
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition);
+        } else {
+            alert("Tu navegador no soporta geolocalización");
+        }
+    }
 
-    });
-</script>-->
+    function showPosition(position) {
+        var latitud = position.coords.latitude;
+        var longitud = position.coords.longitude;
+
+        $("#id_latitud").val(latitud);
+        $("#id_longitud").val(longitud);
+    }
+</script>
+<script>
+
+document.querySelector('.final-step').addEventListener('click', updateSummary);
+
+function updateSummary() {
+  const nombreSimulacion = document.querySelector('#id_nombre_simulacion').value;
+  const sector = document.querySelector('#id_sector option:checked').textContent;
+  const aplicacion = document.querySelector('#id_aplicacion option:checked').textContent;
+  const ubicacion = document.querySelector('#id_nombre_ubicacion option:checked').textContent;
+  const latitud = document.querySelector('#id_latitud').value;
+  const longitud = document.querySelector('#id_longitud').value;
+
+  const demanda_anual = document.querySelector('#id_demanda_anual');
+  const $area = document.querySelector('#id_area_apertura');// Area de apertura de colector
+  const $col_b = document.querySelector('#id_col_bat');// Colectores por bateria
+  const $cant_bat = document.querySelector('#id_cantidad_bat');// Cantidad de baterias
+  const sup_col = document.querySelector('#id_sup_colectores'); // Superficie colectores
+  const tot_col = document.querySelector('#id_total_colectores');
+
+  document.querySelector('#nomb_sim_res').textContent = nombreSimulacion;
+  document.querySelector('#sector_res').textContent = sector;
+  document.querySelector('#aplicacion_res').textContent = aplicacion;
+  document.querySelector('#ubicacion_res').textContent = ubicacion;
+  document.querySelector('#latitud_res').textContent = latitud;
+  document.querySelector('#longitud_res').textContent = longitud;
+  document.querySelector('#id_demanda_anual').textContent = demanda_anual;
+}
+
+
+
+</script>
+
+
 <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvpzsc-Ukvfq3x5zdC9ByehSuk7HkpmRU&callback=initMap"></script>
  
 {% endblock %}
