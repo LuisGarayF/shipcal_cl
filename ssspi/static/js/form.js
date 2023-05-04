@@ -318,7 +318,6 @@ function updateSummary() {
     const precio_colector = document.querySelector('#id_precio_colector');
     const unidad_costo_combustible = document.querySelector('#id_unidad_costo_combustible');
     const costo_tanque = document.querySelector('#id_costo_tanque');
-    console.log('costo_tanque:', costo_tanque.value);
     const balance = document.querySelector('#id_balance');
     const instalacion = document.querySelector('#id_instalacion');
     const operacion = document.querySelector('#id_operacion');
@@ -642,16 +641,16 @@ function ubicacionPredefinida() {
   
 
 cont_ubica.addEventListener('change', (e)=> {
-    console.log(e.target.tagName);
-    console.log(e.target.value);
+    //console.log(e.target.tagName);
+    //console.log(e.target.value);
     if (e.target && e.target.tagName === 'INPUT'){
         
         if (e.target.id == 'id_latitud'){
-            console.log(e.target.value);
+            //console.log(e.target.value);
             return (latitud_res.value = e.target.value);
         }
         if (e.target.id == 'id_longitud'){
-            console.log(e.target.value);
+           // console.log(e.target.value);
             return (longitud_res.value = e.target.value);
         }   
     }
@@ -670,7 +669,7 @@ cont_ubica.addEventListener('change', (e)=> {
 // Layout campo solar
 
 cont_layout.addEventListener('change', (e)=> {
-    console.log(e.target);
+    //console.log(e.target);
     if (e.target && e.target.tagName === 'INPUT'){
  
         if (e.target.id == 'id_cant_bat'){
@@ -731,6 +730,102 @@ const diasSemana = {
   });
 
 
+/* Descargar Resumen */
+
+async function downloadResume() {
+
+    const pdfModal = M.Modal.init(document.getElementById('pdfModal'));
+    pdfModal.open();
+    const resumen = document.querySelector('.resumen');
+    const clone = resumen.cloneNode(true);
+    clone.style.width = resumen.scrollWidth + 'px';
+    clone.style.height = resumen.scrollHeight + 'px';
+    clone.style.position = 'absolute';
+    clone.style.left = '-9999px';
+    clone.style.overflow = 'visible';
+    document.body.appendChild(clone);
+  
+    // Copia estilos
+    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'));
+    styles.forEach((style) => {
+      if (style.tagName === 'LINK') {
+        const newLink = document.createElement('link');
+        newLink.href = style.href;
+        newLink.rel = 'stylesheet';
+        clone.appendChild(newLink);
+      } else {
+        const newStyle = document.createElement('style');
+        newStyle.innerHTML = `
+        .page-break {
+          display: block;
+          page-break-before: always;
+        }
+        .step-actions {
+          display: none;
+        }
+        .marginTop {
+            margin-top: 250px;
+          }
+        `;
+        clone.appendChild(newStyle);
+      }
+
+    });
+
+
+
+  
+    const options = {
+      scale: 2,
+      width: clone.scrollWidth,
+      height: clone.scrollHeight,
+      windowWidth: clone.scrollWidth,
+      windowHeight: clone.scrollHeight,
+      scrollY: 0,
+      scrollX: 0,
+      useCORS: true,
+    };
+  
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    html2canvas(clone, options).then((canvas) => {
+      document.body.removeChild(clone);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // Resta 20 para agregar un margen
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight() - 20; // Resta 20 para agregar un margen inferior
+  
+      let currentPage = 1;
+      let yPos = 10;
+  
+      while (yPos < pdfHeight) {
+        const cropHeight = pageHeight * (imgProps.width / pdfWidth);
+        const croppedCanvas = document.createElement('canvas');
+        croppedCanvas.width = imgProps.width;
+        croppedCanvas.height = cropHeight;
+        croppedCanvas.getContext('2d').drawImage(canvas, 0, (pageHeight * (currentPage - 1)) * (imgProps.width / pdfWidth), imgProps.width, cropHeight, 0, 0, imgProps.width, cropHeight);
+  
+        const croppedImgData = croppedCanvas.toDataURL('image/png');
+  
+        pdf.addImage(croppedImgData, 'PNG', 10, yPos - (pageHeight * (currentPage - 1)), pdfWidth, pageHeight);
+  
+        yPos += pageHeight;
+  
+        if (yPos < pdfHeight) {
+          pdf.addPage();
+          currentPage++;
+        }
+      }
+      
+      pdf.save('Resumen.pdf');
+      pdfModal.close();
+    });
+  }
+  
+  
+  
+    
   
 
 

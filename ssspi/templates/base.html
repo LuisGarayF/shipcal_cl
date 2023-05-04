@@ -24,18 +24,18 @@
     <link rel="stylesheet" href="{% static 'css/mstepper.css' %}">
     <link rel="stylesheet" href="{% static 'css/auxiliar.css' %}">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <link href="http://cdn.pydata.org/bokeh/release/bokeh-2.3.2.min.css" rel="stylesheet” type="text/css”>
+    {% comment %} <link href="http://cdn.pydata.org/bokeh/release/bokeh-2.3.2.min.css" rel="stylesheet” type="text/css”>
     <link href="http://cdn.pydata.org/bokeh/release/bokeh-widgets-2.3.2.min.css" rel="stylesheet” type="text/css”>
-    <link href="https://cdn.pydata.org/bokeh/release/bokeh-tables-1.0.1.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.pydata.org/bokeh/release/bokeh-tables-1.0.1.min.css" rel="stylesheet" type="text/css"> {% endcomment %}
     <!--Font Awesome -->
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.1.1/css/all.css" integrity="sha384-/frq1SRXYH/bSyou/HUp/hib7RVN1TawQYja658FEOodR/FQBKVqT9Ol+Oz3Olq5" crossorigin="anonymous">
 </head>
 <body  class="d-flex flex-column h-100">
     <!-- Scripts -->
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.3.2.min.js"></script>
+    {% comment %} <script src="https://cdn.bokeh.org/bokeh/release/bokeh-2.3.2.min.js"></script>
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.3.2.min.js"></script>
     <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.3.2.min.js"></script>
-    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-2.3.2.min.js"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-api-2.3.2.min.js"></script> {% endcomment %}
 
     {% block 'navbar'%}
         {% include './navbar.html' %}
