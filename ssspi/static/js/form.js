@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
 
     });
+
     // Parametros colector
 
     toogle_switch = document.getElementById('toogle_switch');
@@ -53,10 +54,9 @@ let $cant_bat = document.getElementById('id_cantidad_bat');// Cantidad de bateri
 let sup_col = document.getElementById('id_sup_colectores'); // Superficie colectores
 let tot_col = document.getElementById('id_total_colectores'); // Total de colectores
 
-const combustible = document.getElementById('id_combustible');
-const unidad_demanda = document.getElementById('id_unidad_demanda');
-const ini_jornada = document.getElementById('id_ini_jornada');
-const term_jornada = document.getElementById('id_term_jornada');
+let demanda_anual = document.querySelector('#id_demanda_anual');
+
+
 
 // Inputs Temperaturas //
 let t_red = document.getElementById('id_temperatura_red'); // Input temperatura desde la red
@@ -114,8 +114,7 @@ let eficiencia_optica = document.getElementById('id_eficiencia_optica');
 
 // Otros
 
-let t_salida = document.getElementById('id_t_salida');
-let efectividad = document.getElementById('id_efectividad');
+
 let tabla_colectores = document.getElementById('tabla_colectores');
 let btn_simular = document.getElementById('btn_simular');
 
@@ -188,7 +187,7 @@ const t_diciembre_res = document.getElementById('t_diciembre_res');
 
 const t_red_res = document.getElementById('t_entrada_res');// Temperatura de entrada desde la red
 
-// Resumen campo perfil de demanda
+// Campo resumen perfil de demanda
 
 const combustible_res = document.getElementById('combustible_res');
 const ini_jornada_res = document.getElementById('ini_res');
@@ -226,35 +225,155 @@ const efectividad_res = document.getElementById('efectividad_res');
 const costo_combustible_res = document.getElementById('costo_combustible_res');
 const unidad_costo_combustible_res = document.getElementById('unidad_costo_combustible_res');
 const precio_colector_res = document.getElementById('precio_colector_res');
+const costo_tanque_res = document.getElementById('costo_tanque_res');
+const balance_res = document.getElementById('balance_res');
+const instalacion_res = document.getElementById('instalacion_res');
+const operacion_res = document.getElementById('operacion_res');
+const impuesto_res = document.getElementById('impuesto_res');
+const descuento_res = document.getElementById('descuento_res');
+const inflacion_res = document.getElementById('inflacion_res');
+
 
 /* Cálculo Superficie estimada y total de colectores */
 
-colector.addEventListener('change', (e)=> {
-    if (e.target && e.target.tagName === 'INPUT'){
-        
-        if ((e.target.id == 'id_area_apertura') || (e.target.id == 'id_col_bat') || (e.target.id == 'id_cantidad_bat')){
+function handleInputChange(e) {
+    if (e.target && e.target.tagName === 'INPUT') {
+        if (['id_area_apertura', 'id_col_bat', 'id_cantidad_bat'].includes(e.target.id)) {
             
-            let area = parseFloat($area.value); //Area Apertura
-            let colb = parseFloat($col_b.value); //Colectores por bateria
-            let cbat = parseFloat($cant_bat.value); //n° baterias*/
-            
-            calc_sup_tcol(area,colb,cbat);
+            const area = parseFloat($area.value);
+            const colectoresPorBateria = parseFloat($col_b.value);
+            const numBaterias = parseFloat($cant_bat.value);
+
+            calc_sup_tcol(area, colectoresPorBateria, numBaterias);
         }
     }
-});
+}
 
-function calc_sup_tcol(area,colb,cbat) {
+colector.addEventListener('change', handleInputChange);
+
+function calc_sup_tcol(area, colectoresPorBateria, numBaterias) {
     try {
+        
+        area = area || 0;
+        colectoresPorBateria = colectoresPorBateria || 0;
+        numBaterias = numBaterias || 0;
 
-        let a = area || 0;
-        let b = colb || 0;
-        let c = cbat || 0;       
-        superficie = a * b * c * 1.3 ; // Superficie Estimada = Area Apertura x n° baterias x Colectores por bateria x 1.3
-        total = b * c ; // Total de colectores = n° baterias x Colectores por bateria
+        const superficie = parseFloat((area * colectoresPorBateria * numBaterias * 1.3).toFixed(3));
+        const totalColectores = colectoresPorBateria * numBaterias;
 
-        return  (sup_col.value = superficie), (tot_col.value = total), (sup_colectores_res.innerHTML = superficie), (total_colectores_res.innerText = total);//ver por que retorna cero
-    } catch (e) {       
+        
+        sup_col.value = superficie;
+        tot_col.value = totalColectores;
+        sup_colectores_res.innerHTML = superficie;
+        total_colectores_res.innerText = totalColectores;
+    } catch (e) {
+        
+        console.error('Error al calcular la superficie y el total de colectores:', e);
     }
+}
+
+
+document.querySelector('.final-step').addEventListener('click', updateSummary);
+
+function updateSummary() {
+    const nombreSimulacion = document.querySelector('#id_nombre_simulacion').value;
+    const sector = document.querySelector('#id_sector option:checked').textContent;
+    const aplicacion = document.querySelector('#id_aplicacion option:checked').textContent;
+    const ubicacion = document.querySelector('#id_nombre_ubicacion option:checked').textContent;
+    const latitud = document.querySelector('#id_latitud').value;
+    const longitud = document.querySelector('#id_longitud').value;
+    const combustible = document.querySelector('#id_combustible');
+    const unidad_demanda = document.querySelector('#id_unidad_demanda');
+    const ini_jornada = document.querySelector('#id_ini_jornada');
+    const term_jornada = document.querySelector('#id_term_jornada');
+    const potencia_caldera = document.querySelector('#id_potencia_caldera');
+    const presion_caldera = document.querySelector('#id_presion_caldera');
+    const tipo_caldera = document.querySelector('#id_tipo_caldera');
+    const eficiencia_caldera = document.querySelector('#id_eficiencia_caldera');
+    const unidad_potencia = document.querySelector('#id_unidad_potencia');
+    const unidad_presion = document.querySelector('#id_unidad_presion');
+    const temperatura_salida = document.querySelector('#id_t_salida');
+    const efectividad = document.querySelector('#id_efectividad');
+    const esquema = document.querySelector('input[name="esquema"]:checked').parentNode.textContent.trim().split(':')[0];
+    const siglasEsquema = document.querySelector('input[name="esquema"]:checked').parentNode.querySelector('.tooltipped').getAttribute('data-tooltip');
+    const imagenEsquema = document.querySelector('input[name="esquema"]:checked').parentNode.nextElementSibling.querySelector('img').getAttribute('src');
+    const area_apertura = document.querySelector('#id_area_apertura');
+    const flujo_prueba = document.querySelector('#id_rango_flujo_prueba');
+    const eficiencia_optica = document.querySelector('#id_eficiencia_optica');
+    const coef_per_lineales = document.querySelector('#id_coef_per_lineales');
+    const coef_per_cuadraticas = document.querySelector('#id_coef_per_cuadraticas');
+    const iam = document.querySelector('#id_iam');
+    const iam_longitudinal = document.querySelector('#id_iam_longitudinal');
+    const inclinacion_col = document.querySelector('#id_inclinacion_col');
+    const azimut = document.querySelector('#id_azimut');
+    const flujo_masico = document.querySelector('#id_flujo_masico');
+    const unidad_flujo_masico = document.querySelector('#id_unidad_flujo_masico');
+    const tipo_fluido = document.querySelector('#id_tipo_fluido');
+    const volumen = document.querySelector('#id_volumen');
+    const relacion_aspecto = document.querySelector('#id_relacion_aspecto');
+    const material_almacenamiento = document.querySelector('#id_material_almacenamiento');
+    const espesor = document.querySelector('#id_espesor_aislante');
+    const material_aislacion = document.querySelector('#id_material_aislamiento');
+    const costo_combustible = document.querySelector('#id_costo_combustible');
+    const precio_colector = document.querySelector('#id_precio_colector');
+    const unidad_costo_combustible = document.querySelector('#id_unidad_costo_combustible');
+    const costo_tanque = document.querySelector('#id_costo_tanque');
+    console.log('costo_tanque:', costo_tanque.value);
+    const balance = document.querySelector('#id_balance');
+    const instalacion = document.querySelector('#id_instalacion');
+    const operacion = document.querySelector('#id_operacion');
+    const impuesto = document.querySelector('#id_impuesto');
+    const descuento = document.querySelector('#id_descuento');
+    const inflacion = document.querySelector('#id_inflacion');
+
+    document.querySelector('#nomb_sim_res').textContent = nombreSimulacion;
+    document.querySelector('#sector_res').textContent = sector;
+    document.querySelector('#aplicacion_res').textContent = aplicacion;
+    //document.querySelector('#ubicacion_res').textContent = ubicacion;
+    document.querySelector('#latitud_res').textContent = latitud;
+    document.querySelector('#longitud_res').textContent = longitud;
+    document.querySelector('#combustible_res').textContent = combustible.value;
+    document.querySelector('#unidad_demanda_res').textContent = unidad_demanda.value;
+    document.querySelector('#ini_jornada_res').textContent = ini_jornada.value;
+    document.querySelector('#term_jornada_res').textContent = term_jornada.value;
+    document.querySelector('#potencia_res').textContent = potencia_caldera.value;
+    document.querySelector('#presion_res').textContent = presion_caldera.value;
+    document.querySelector('#tipo_caldera_res').textContent = tipo_caldera.value;
+    document.querySelector('#eficiencia_res').textContent = eficiencia_caldera.value;
+    document.querySelector('#unidad_potencia_res').textContent = unidad_potencia.value;
+    document.querySelector('#unidad_presion_res').textContent = unidad_presion.value;
+    document.querySelector('#t_salida_res').textContent = temperatura_salida.value;
+    document.querySelector('#efectividad_res').textContent = efectividad.value;
+    document.querySelector('#esquema_res').textContent = esquema;
+    document.querySelector('#siglas_esquema_res').textContent = siglasEsquema;
+    document.querySelector('#imagen_esquema_res').innerHTML = `<img src="${imagenEsquema}" class="w-100 h-100" alt="${esquema}">`;
+    document.querySelector('#flujo_prueba_res').textContent = flujo_prueba.value;
+    document.querySelector('#area_apertura_res').textContent = area_apertura.value;
+    document.querySelector('#eficiencia_optica_res').textContent = eficiencia_optica.value;
+    document.querySelector('#coef_per_lineales_res').textContent = coef_per_lineales.value;
+    document.querySelector('#coef_per_cuadraticas_res').textContent = coef_per_cuadraticas.value;
+    document.querySelector('#iam_res').textContent = iam.value;
+    document.querySelector('#iam_longi_res').textContent = iam_longitudinal.value;
+    document.querySelector('#inclinacion_res').textContent = inclinacion_col.value;
+    document.querySelector('#azimut_res').textContent = azimut.value;
+    document.querySelector('#flujo_masico_res').textContent = flujo_masico.value;
+    document.querySelector('#unidad_flujo_masico_res').textContent = unidad_flujo_masico.value;
+    document.querySelector('#fluido_res').textContent = tipo_fluido.value;
+    document.querySelector('#volumen_res').textContent = volumen.value;
+    document.querySelector('#relacion_aspecto_res').textContent = relacion_aspecto.value;
+    document.querySelector('#material_almacenamiento_res').textContent = material_almacenamiento.value;
+    document.querySelector('#espesor_res').textContent = espesor.value;
+    document.querySelector('#material_aislacion_res').textContent = material_aislacion.value;
+    document.querySelector('#costo_combustible_res').textContent = costo_combustible.value;
+    document.querySelector('#precio_colector_res').textContent = precio_colector.value;
+    document.querySelector('#unidad_costo_combustible_res').textContent = unidad_costo_combustible.value;
+    document.querySelector('#costo_tanque_res').textContent = costo_tanque.value;
+    document.querySelector('#balance_res').textContent = balance.value;
+    document.querySelector('#instalacion_res').textContent = instalacion.value;
+    document.querySelector('#operacion_res').textContent = operacion.value;
+    document.querySelector('#impuesto_res').textContent = impuesto.value;
+    document.querySelector('#descuento_res').textContent = descuento.value;
+    document.querySelector('#inflacion_res').textContent = inflacion.value;
 }
 
 
@@ -326,23 +445,36 @@ switch_retorno.addEventListener('change', (e)=> {
     return $V;
 });
 
+
 // Corrección entre temperaturas constantes y VARIABLES
 
-/*id_temperatura_red.addEventListener('change', (e) => {
-    return t_entrada_res.innerText = e.target.value;
-});*/
-        
-temp_retorno.addEventListener('change', (e)=> {
-    t_anual_res.innerText = e.target.value; // Arroja la temperatura anual
-    return ((t_ene.value = e.target.value ),(t_feb.value = e.target.value),(t_mar.value = e.target.value),(t_abr.value = e.target.value),(t_may.value = e.target.value),
-            (t_jun.value = e.target.value),(t_jul.value = e.target.value),(t_ago.value = e.target.value),(t_sep.value = e.target.value),(t_oct.value = e.target.value),
-            (t_nov.value = e.target.value),(t_dic.value = e.target.value), (t_enero_res.textContent = e.target.value),(t_febrero_res.textContent = e.target.value),
-            (t_marzo_res.textContent = e.target.value),(t_abril_res.textContent = e.target.value),(t_mayo_res.textContent = e.target.value),(t_junio_res.textContent = e.target.value),
-            (t_julio_res.innerHTML = e.target.value),(t_agosto_res.innerHTML = e.target.value),(t_septiembre_res.innerHTML = e.target.value),(t_octubre_res.innerHTML = e.target.value),
-            (t_noviembre_res.innerHTML = e.target.value),(t_diciembre_res.innerHTML = e.target.value));
+temp_retorno.addEventListener('change', (e) => {
+    const temperatura = e.target.value;
+    
+    t_anual_res.textContent = temperatura;
+  
+    [t_ene, t_feb, t_mar, t_abr, t_may, t_jun, t_jul, t_ago, t_sep, t_oct, t_nov, t_dic].forEach(el => el.value = temperatura);
+  
+    const meses = {
+      'Enero': t_enero_res,
+      'Febrero': t_febrero_res,
+      'Marzo': t_marzo_res,
+      'Abril': t_abril_res,
+      'Mayo': t_mayo_res,
+      'Junio': t_junio_res,
+      'Julio': t_julio_res,
+      'Agosto': t_agosto_res,
+      'Septiembre': t_septiembre_res,
+      'Octubre': t_octubre_res,
+      'Noviembre': t_noviembre_res,
+      'Diciembre': t_diciembre_res,
+    };
+  
+    for (const mes in meses) {
+      meses[mes].textContent = temperatura;
+    }
 });
-
-// Temperatura variable
+          
 
 t_retorno_variable.addEventListener('change',(e) => {
     if (e.target && e.target.tagName === 'INPUT'){
@@ -385,33 +517,6 @@ t_retorno_variable.addEventListener('change',(e) => {
     }
 });
 
-// Temperatura salida
-
-t_salida.addEventListener('change', (e) =>{
-    return t_salida_res.textContent = e.target.value;
-});
-
-
-// Listener de campo Esquema de Integración
-
-esq_int.addEventListener('change', (e)=> {
-    let sigla_esq = document.getElementById("id_siglas_esquema");
-    let siglas_ocultas = document.getElementById("siglas_ocultas");
-
-    console.log(e.target.checked);
-    console.log(e.target.tagName);
-    console.log(e.target.value);
-    if (e.target && e.target.tagName === 'INPUT'){
-
-        console.log(siglas_ocultas.value);
-        return (siglas_ocultas.value = sigla_esq.value);
-        
-    }
-    else {
-        
-    }
-
-});
 
 /* Cálculo Demanda Anual  y Renderización de resultados*/
 
@@ -423,62 +528,62 @@ cont_demanda_mensual.addEventListener('change', (e)=> {
         
         if (e.target.id == 'id_demanda_enero'){
             let d_enero = parseFloat(demanda_enero.value); //Valor demanda enero
-            //d_enero_res.innerText = demanda_enero.value;
+            d_enero_res.innerText = demanda_enero.value;
             demanda_mes.push(d_enero);
         }
         if (e.target.id == 'id_demanda_febrero'){
             let d_febrero = parseFloat(demanda_febrero.value); //Valor demanda febrero
-            //d_febrero_res.innerText = demanda_febrero.value;
+            d_febrero_res.innerText = demanda_febrero.value;
             demanda_mes.push(d_febrero);
         }
         if (e.target.id == 'id_demanda_marzo'){
             let d_marzo = parseFloat(demanda_marzo.value); //Valor demanda marzo
-            //d_marzo_res.innerText = demanda_marzo.value;
+            d_marzo_res.innerText = demanda_marzo.value;
             demanda_mes.push(d_marzo);
         }
         if (e.target.id == 'id_demanda_abril'){
             let d_abril = parseFloat(demanda_abril.value); //Valor demanda abril
-            //d_abril_res.innerText = demanda_abril.value;
+            d_abril_res.innerText = demanda_abril.value;
             demanda_mes.push(d_abril);
         }
         if (e.target.id == 'id_demanda_mayo'){
             let d_mayo = parseFloat(demanda_mayo.value); //Valor demanda mayo
-            //d_mayo_res.innerText = demanda_mayo.value;
+            d_mayo_res.innerText = demanda_mayo.value;
             demanda_mes.push(d_mayo);
         }
         if (e.target.id == 'id_demanda_junio'){
             let d_junio = parseFloat(demanda_junio.value); //Valor demanda junio
-            //d_junio_res.innerText = demanda_junio.value;
+            d_junio_res.innerText = demanda_junio.value;
             demanda_mes.push(d_junio);
         }
         if (e.target.id == 'id_demanda_julio'){
             let d_julio = parseFloat(demanda_julio.value); //Valor demanda julio
-            //d_julio_res.innerText = demanda_julio.value;
+            d_julio_res.innerText = demanda_julio.value;
             demanda_mes.push(d_julio);
         }
         if (e.target.id == 'id_demanda_agosto'){
             let d_agosto = parseFloat(demanda_agosto.value); //Valor demanda agosto
-            //d_agosto_res.innerText = demanda_agosto.value;
+            d_agosto_res.innerText = demanda_agosto.value;
             demanda_mes.push(d_agosto);
         }
         if (e.target.id == 'id_demanda_septiembre'){
             let d_septiembre = parseFloat(demanda_septiembre.value); //Valor demanda septiembre
-            //d_septiembre_res.innerText = demanda_septiembre.value;
+            d_septiembre_res.innerText = demanda_septiembre.value;
             demanda_mes.push(d_septiembre);
         }
         if (e.target.id == 'id_demanda_octubre'){
             let d_octubre = parseFloat(demanda_octubre.value); //Valor demanda octubre
-            //d_octubre_res.innerText = demanda_octubre.value;
+            d_octubre_res.innerText = demanda_octubre.value;
             demanda_mes.push(d_octubre);
         }
         if (e.target.id == 'id_demanda_noviembre'){
             let d_noviembre = parseFloat(demanda_noviembre.value); //Valor demanda noviembre
-            //d_noviembre_res.innerText = demanda_noviembre.value;
+            d_noviembre_res.innerText = demanda_noviembre.value;
             demanda_mes.push(d_noviembre);
         }
         if (e.target.id == 'id_demanda_diciembre'){
             let d_diciembre = parseFloat(demanda_diciembre.value); //Valor demanda diciembre
-            //d_diciembre_res.innerText = demanda_diciembre.value;
+            d_diciembre_res.innerText = demanda_diciembre.value;
             demanda_mes.push(d_diciembre);
         }
         calculo_demanda_anual(demanda_mes);
@@ -491,7 +596,8 @@ function calculo_demanda_anual(demanda_mes) {
         demanda_mes.forEach(function(a){d_anual +=a;});
         
         return  ((demanda_anual.value = d_anual),(d_anual_res.innerText = d_anual));
-    } catch (e) {       
+    } catch (e) {     
+        console.log(e.message);  
     }
 }
 
@@ -552,7 +658,7 @@ cont_ubica.addEventListener('change', (e)=> {
     if (e.target && e.target.tagName === 'SELECT'){
         if (e.target.id == 'id_nombre_ubicacion'){
             if (e.target.value === 'predefinida') { // Si se selecciona la opción "Predefinida"
-                ubicacionPredefinida(); // Llama a la función para mostrar la ubicación predefinida
+                ubicacionPredefinida(); // Llama a la función para mostrar la ubicación predefinida *
             } else {
                 return (ubicacion_res.value = e.target.value);
             }
@@ -560,35 +666,6 @@ cont_ubica.addEventListener('change', (e)=> {
     }
 });
 
-// Campo solar
-
-colector.addEventListener('change', (e)=> {
-    
-    if (e.target && e.target.tagName === 'INPUT'){
- 
-        if (e.target.id == 'id_area_apertura'){
-            area_apertura_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_eficiencia_optica'){
-            eficiencia_optica_res.innerHTML = e.target.value;
-        }
-        if (e.target.id == 'id_rango_flujo_prueba'){
-            rango_flujo_prueba_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_coef_per_lineales'){
-            coef_per_lineales_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_coef_per_cuadraticas'){
-            coef_per_cuadraticas_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_iam'){
-            iam_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_iam_longitudinal'){
-            iam_longi_res.innerText = e.target.value;
-        }
-    }
-});
 
 // Layout campo solar
 
@@ -608,170 +685,53 @@ cont_layout.addEventListener('change', (e)=> {
         if (e.target.id == 'id_cantidad_bat'){
             cant_bat_res.innerText = e.target.value;
         }
-        if (e.target.id == 'id_inclinacion_col'){
-            inclinacion_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_azimut'){
-            azimut_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_flujo_masico'){
-            flujo_masico_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_unidad_flujo_masico'){
-            unidad_flujo_masico_res.innerText = e.target.value;
-        }
-    }
-    if (e.target && e.target.tagName === 'SELECT'){
-
-        if (e.target.id == 'id_tipo_fluido'){
-            console.log(e.target.value);
-            fluido_res.innerText = e.target.value;
-        }
+        //aca
     }
 });
 
 
 // Perfil demanda semanal y diaria
 
-cont_perfil_de.addEventListener('change', (e) => {
-
-    if (e.target && e.target.type === 'checkbox') {
-
-        if ((e.target.id == 'id_demanda_lun')&&(e.target.checked)){
-            if (e.target.value == 'on'){
-                return (d_lunes_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_lunes_res.innerHTML = 'No');    
-            }   
-        }
-        if ((e.target.id == 'id_demanda_mar')&&(e.target.checked)){
-            if (e.target.checked){
-                return (d_martes_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_martes_res.innerHTML = 'No');    
-            }   
-        }
-        if ((e.target.id == 'id_demanda_mie')&&(e.target.checked)){
-            if (e.target.value == 'on'){
-                return (d_miercoles_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_miercoles_res.innerHTML = 'No');    
-            }   
-        }
-        if ((e.target.id == 'id_demanda_jue')&&(e.target.checked)){
-            if (e.target.value == 'on'){
-                return (d_jueves_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_jueves_res.innerHTML = 'No');    
-            }   
-        }
-        if ((e.target.id == 'id_demanda_vie')&&(e.target.checked)){
-            if (e.target.value == 'on'){
-                return (d_viernes_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_viernes_res.innerHTML = 'No');    
-            }   
-        }
-        if ((e.target.id == 'id_demanda_sab')&&(e.target.checked)){
-            if (e.target.value == 'on'){
-                return (d_sabado_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_sabado_res.innerHTML = 'No');    
-            }   
-        }
-        if ((e.target.id == 'id_demanda_dom')&&(e.target.checked)){
-            if (e.target.value == 'on'){
-                return (d_domingo_res.innerHTML = 'Si');    
-            }
-            else{
-                return (d_domingo_res.innerHTML = 'No');    
-            }   
-        }
-    }    
-    if (e.target && e.target.tagName === 'SELECT'){
-        if (e.target.id == 'id_combustible'){
-            console.log(e.target.value);
-            return (combustible_res.value = e.target.value);
-        }
-
+const diasSemana = {
+    'id_demanda_lun': d_lunes_res,
+    'id_demanda_mar': d_martes_res,
+    'id_demanda_mie': d_miercoles_res,
+    'id_demanda_jue': d_jueves_res,
+    'id_demanda_vie': d_viernes_res,
+    'id_demanda_sab': d_sabado_res,
+    'id_demanda_dom': d_domingo_res,
+  };
+  
+  // Comprobar el estado inicial de los checkboxes
+  for (const checkboxId in diasSemana) {
+    const checkbox = document.querySelector(`#${checkboxId}`);
+    const elementoResumen = diasSemana[checkboxId];
+  
+    if (checkbox.checked) {
+      elementoResumen.innerHTML = 'Si';
+    } else {
+      elementoResumen.innerHTML = 'No';
     }
- 
-});
-
-// Parametros caldera
-
-cont_param_caldera.addEventListener('change', (e)=>{
-    if (e.target && e.target.tagName === 'INPUT'){
- 
-        if (e.target.id == 'id_potencia_caldera'){
-            potencia_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_presion_caldera'){
-            presion_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_eficiencia_caldera'){
-            eficiencia_res.innerText = e.target.value;
-        }
+  }
+  
+  // Agregar el listener de cambio a los checkboxes
+  cont_perfil_de.addEventListener('change', (e) => {
+    const checkboxId = e.target.id;
+    const checkboxChecked = e.target.checked;
+  
+    if (diasSemana.hasOwnProperty(checkboxId)) {
+      const elementoResumen = diasSemana[checkboxId];
+  
+      if (checkboxChecked) {
+        elementoResumen.innerHTML = 'Si';
+      } else {
+        elementoResumen.innerHTML = 'No';
+      }
     }
-    if (e.target && e.target.tagName === 'SELECT'){
+  });
 
-        if (e.target.id == 'id_unidad_potencia'){
-            unidad_potencia_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_unidad_presion'){
-            unidad_presion_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_tipo_caldera'){
-            tipo_caldera_res.innerText = e.target.value;
-        }
-    }
-});
 
-cont_almacenamiento.addEventListener('change',(e)=>{
-    if (e.target && e.target.tagName === 'INPUT'){
-        if (e.target.id == 'id_volumen'){
-            volumen_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_espesor_aislante'){
-            espesor_res.innerText = e.target.value;
-        }
-    }
-    if (e.target && e.target.tagName === 'SELECT'){
-        if (e.target.id == 'id_relacion_aspecto'){
-            relacion_aspecto_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_material_almacenamiento'){
-            material_almacenamiento_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_material_aislamiento'){
-            material_aislacion_res.innerText = e.target.value;
-        }
-    }
-});
+  
 
-efectividad.addEventListener('change', (e)=>{
-    return efectividad_res.innerText = e.target.value;
-});
 
-cont_param_financiero.addEventListener('change', (e)=>{
-    if (e.target && e.target.tagName === 'INPUT'){
-        if (e.target.id == 'id_costo_combustible'){
-            costo_combustible_res.innerText = e.target.value;
-        }
-        if (e.target.id == 'id_precio_colector'){
-            precio_colector_res.innerText = e.target.value;
-        }
-    }
-    if (e.target && e.target.tagName === 'SELECT'){
-        if (e.target.id == 'id_unidad_costo_combustible'){
-            unidad_costo_combustible_res.innerText = e.target.value;
-        }
-    }
-});
 

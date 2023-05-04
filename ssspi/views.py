@@ -281,7 +281,7 @@ def simulacion(request):
             # plt.plot(results['t'], results['T_out_system'])
             # plt.savefig(f'{BASE_DIR}\FE1\static\img\T_out_system.png')
             # Heat_Map_bokeh(results, 'T_out_system')
-            #result_json = JsonResponse(raw_results)
+            #results_json = JsonResponse(raw_results)
             
             results_json = json.dumps(results)
             

@@ -281,15 +281,6 @@ div.input-field .secciones {
   display: none;
 }
 
-/* #id_procesos [type="checkbox"]+label {
-  display: inline !important;
-}
-
-#id_procesos [type="checkbox"]{
-  opacity: 1 !important;
-  position: relative;
-} */
-
 #id_procesos li label {
   line-height: 2rem !important;
   vertical-align: middle !important;
@@ -327,4 +318,8 @@ div.input-field .secciones {
 .materialize-textarea {
   min-height: 100px;
   height: auto;
+}
+
+.input-autosize {
+  max-width: 100%;
 }

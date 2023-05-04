@@ -117,7 +117,7 @@
                     <div class="step-content">
                         <div class="row">
                             <div class="form-field col s12 ">
-                                <div class="input-field col s12 my-4">
+                                <div class="input-field col s12 my-4" style="display: none;">
                                     <!-- Switch -->
                                     <div class="switch">
                                         <label>
@@ -913,49 +913,49 @@
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Costo específico del tanque de almacenamiento,<br> expresado en dólares por metro cúbico de capacidad.<br> Valor recomendado: USD3200/m3">
-                                        <label for="costo_tanque" id="id_costo_tanque">Costo Tanque almacenamiento: <small>(USD/m<sup>3</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="{{form.costo_tanque.auto_id}}" id="id_label_costo_tanque">Costo Tanque almacenamiento: <small>(USD/m<sup>3</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.costo_tanque}}
                                     <span>{{form.costo_tanque.errors}}</span>
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Costo específico de otros gastos como piping, sistema de control, bombas, etc. <br>Expresado en dólares por metro cuadrado de área de apertura del campo solar.<br> Valor recomendado: USD100/m2">
-                                        <label for="balance" id="id_balance">Balance de planta: <small>(USD/m<sup>2</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="balance" id="id_label_balance">Balance de planta: <small>(USD/m<sup>2</sup>)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.balance}}
                                     <span>{{form.balance.errors}}</span>
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Costo de instalación expresado como un porcentaje del costo de capital de los equipos.<br> Valor recomendado: 10%">
-                                        <label for="instalacion" id="id_instalacion">Instalación: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="instalacion" id="id_label_instalacion">Instalación: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.instalacion}}
                                     <span>{{form.instalacion.errors}}</span>
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Costo anual de operación y mantenimiento del campo solar,<br> expresado como un porcentaje del costo de capital de los equipos.<br> Valor recomendado: 2%.">
-                                        <label for="operacion" id="id_operacion">Operación y mantenimiento: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="operacion" id="id_label_operacion">Operación y mantenimiento: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.operacion}}
                                     <span>{{form.operacion.errors}}</span>
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Tasa de impuesto a la renta.<br>Valor en Chile: 27%">
-                                        <label for="impuesto" id="id_impuesto">Impuesto a la renta: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="impuesto" id="id_label_impuesto">Impuesto a la renta: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.impuesto}}
                                     <span>{{form.impuesto.errors}}</span>
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Tasa de descuento para el proyecto.<br>Valor recomendado para proyectos solares: 7%">
-                                        <label for="descuento" id="id_descuento">Tasa de descuento: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="descuento" id="id_label_descuento">Tasa de descuento: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.descuento}}
                                     <span>{{form.descuento.errors}}</span>
                                 </div>
                                 <div class="input-field col my-4 m3 s12">
                                     <a class="tooltipped" data-position="bottom" data-tooltip="Tasa de inflación anual esperada en el período de evaluación<br>(se asume constante en todo el período).<br> Valor recomendado: 3%">
-                                        <label for="inflacion" id="id_inflacion">Inflación: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
+                                        <label for="inflacion" id="id_label_inflacion">Inflación: <small>(%)</small><i class="material-icons prefix helper px-2">help</i></label>
                                     </a>    
                                     {{form.inflacion}}
                                     <span>{{form.inflacion.errors}}</span>
@@ -975,7 +975,7 @@
                             </div>
                             <div class="col m4 s12 my-3">
                                 <button class="waves-effect waves dark btn btn-primary next-step final-step">
-                                    Siguiente
+                                    Resumen
                                     <i class="material-icons right">arrow_forward</i>
                                 </button>
                             </div>
@@ -988,7 +988,7 @@
                     </div>
                     <div class="step-content">
                         <div class="">
-                            <h6>Identificación :</h6>
+                            <h5>Identificación :</h5>
                             <hr>
                             <table>                    
                                 <tr>
@@ -1009,7 +1009,7 @@
                                 </tr>
                             </table>
                             <br>
-                            <h6>Ubicación</h6>
+                            <h5>Ubicación</h5>
                             <hr>
                             <table>
                                 <tr>
@@ -1017,8 +1017,8 @@
                                     <th>Valor</th>
                                 </tr>
                                 <tr>
-                                    <td>Ubicación</td>
-                                    <td id="ubicacion_res"></td>
+                                    <!--<td>Ubicación</td>
+                                    <td id="ubicacion_res"></td>-->
                                 </tr>
                                 <tr>
                                     <td> Latitud </td>
@@ -1030,7 +1030,7 @@
                                 </tr>
                             </table>
                             <br>
-                            <h6>Demanda y Procesos</h6>
+                            <h5>Demanda y Procesos</h5>
                             <hr>
                             <table>
                                 <tr>
@@ -1174,11 +1174,6 @@
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td> Temperatura desde la red </td>
-                                    <td id="t_entrada_res"></td>
-                                    <td> ° C </td>
-                                </tr>
-                                <tr>
                                     <td> Temperatura retorno constante anual </td>
                                     <td id="t_anual_res"></td>
                                     <td> ° C </td>
@@ -1250,24 +1245,26 @@
                                 </tr>
                             </table>
                             <br>
-                            <h6>Esquemas de Integración</h6>
+                            <h5>Esquemas de Integración</h5>
                             <hr>
                             <table>
                                 <tr>
                                     <th>Parámetro</th>
-                                    <th>Valor</th>
+                                    <th>Esquema</th>
+                                    <th>Siglas<th>
                                 </tr>
                                 <tr>
                                     <td>Esquema de Integración</td>
                                     <td id="esquema_res"></td>
+                                    <td id="siglas_esquema_res"></td>
                                 </tr>
                                 <tr>
-                                    <td> Imagen esquema </td>
-                                    <td id="imagen_res"></td>
+                                    <td>  </td>
+                                    <td id="imagen_esquema_res"></td>
                                 </tr>
                             </table>
                             <br>
-                            <h6>Campo Termosolar</h6>
+                            <h5>Campo Termosolar</h5>
                             <hr>
                             <h8> Parámetros del colector</h8>
                             <table>
@@ -1288,7 +1285,7 @@
                                 </tr>
                                 <tr>
                                     <td> Flujo de prueba </td>
-                                    <td id="rango_flujo_prueba_res"></td>
+                                    <td id="flujo_prueba_res"></td>
                                     <td> </td>
                                 </tr>
                                 <tr>
@@ -1414,7 +1411,7 @@
                             </table>
                             <br>
                             <hr>
-                            <h8> Parámetros financieros </h8>
+                            <h5> Parámetros financieros </h5>
                             <table>
                                 <tr>
                                     <th>Parámetro</th>
@@ -1429,7 +1426,42 @@
                                 <tr>
                                     <td> Precio por colector </td>
                                     <td id="precio_colector_res"></td>
-                                    <td id="unidad_costo_combustible_res"></td>
+                                    <td> USD/Colector </td>
+                                </tr>
+                                <tr>
+                                    <td> Costo Tanque Almacenamiento </td>
+                                    <td id="costo_tanque_res"></td>
+                                    <td> USD/m<sup>3</sup></td>
+                                </tr>
+                                <tr>
+                                    <td> Balance de planta </td>
+                                    <td id="balance_res"></td>
+                                    <td> USD/m<sup>2</sup></td>
+                                </tr>
+                                <tr>
+                                    <td> Instalación </td>
+                                    <td id="instalacion_res"></td>
+                                    <td> % </td>
+                                </tr>
+                                <tr>
+                                    <td> Operación y mantenimiento </td>
+                                    <td id="operacion_res"></td>
+                                    <td> % </td>
+                                </tr>
+                                <tr>
+                                    <td> Impuesto a la renta </td>
+                                    <td id="impuesto_res"></td>
+                                    <td> % </td>
+                                </tr>
+                                <tr>
+                                    <td> Tasa de descuento </td>
+                                    <td id="descuento_res"></td>
+                                    <td> % </td>
+                                </tr>
+                                <tr>
+                                    <td> Inflación </td>
+                                    <td id="inflacion_res"></td>
+                                    <td> % </td>
                                 </tr>
                             </table>
                         </div>    
@@ -1489,38 +1521,6 @@
         $("#id_longitud").val(longitud);
     }
 </script>
-<script>
-
-document.querySelector('.final-step').addEventListener('click', updateSummary);
-
-function updateSummary() {
-  const nombreSimulacion = document.querySelector('#id_nombre_simulacion').value;
-  const sector = document.querySelector('#id_sector option:checked').textContent;
-  const aplicacion = document.querySelector('#id_aplicacion option:checked').textContent;
-  const ubicacion = document.querySelector('#id_nombre_ubicacion option:checked').textContent;
-  const latitud = document.querySelector('#id_latitud').value;
-  const longitud = document.querySelector('#id_longitud').value;
-
-  const demanda_anual = document.querySelector('#id_demanda_anual');
-  const $area = document.querySelector('#id_area_apertura');// Area de apertura de colector
-  const $col_b = document.querySelector('#id_col_bat');// Colectores por bateria
-  const $cant_bat = document.querySelector('#id_cantidad_bat');// Cantidad de baterias
-  const sup_col = document.querySelector('#id_sup_colectores'); // Superficie colectores
-  const tot_col = document.querySelector('#id_total_colectores');
-
-  document.querySelector('#nomb_sim_res').textContent = nombreSimulacion;
-  document.querySelector('#sector_res').textContent = sector;
-  document.querySelector('#aplicacion_res').textContent = aplicacion;
-  document.querySelector('#ubicacion_res').textContent = ubicacion;
-  document.querySelector('#latitud_res').textContent = latitud;
-  document.querySelector('#longitud_res').textContent = longitud;
-  document.querySelector('#id_demanda_anual').textContent = demanda_anual;
-}
-
-
-
-</script>
-
 
 <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvpzsc-Ukvfq3x5zdC9ByehSuk7HkpmRU&callback=initMap"></script>
  

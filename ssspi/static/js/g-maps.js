@@ -20,6 +20,8 @@ function initMap() {
       u_predef.style.display = "block";
       u_manual.style.display = "none";
       
+
+      
       // mover el marker a la ubicación predefinida seleccionada
       let selectedOption = select_ubicacion.options[select_ubicacion.selectedIndex];
       let latitud = selectedOption.dataset.latitud;
