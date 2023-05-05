@@ -85,16 +85,16 @@ function initMap() {
     });
   });
   // Event listener para cambiar la ubicación predefinida, verificar por que no funciona
-  select_ubicacion.addEventListener("change", (e) => {
-    let selectedOption = select_ubicacion.options[select_ubicacion.selectedIndex];
-    let latitud = parseFloat(selectedOption.dataset.latitud);
-    let longitud = parseFloat(selectedOption.dataset.longitud);
-    let latlng = new google.maps.LatLng(latitud, longitud);
-    marker.setPosition(latlng);
-    map.panTo(latlng);
-    input_latitud.value = latitud;
-    input_longitud.value = longitud;
-  });
+  // select_ubicacion.addEventListener("change", (e) => {
+  //   let selectedOption = select_ubicacion.options[select_ubicacion.selectedIndex];
+  //   let latitud = parseFloat(selectedOption.dataset.latitud);
+  //   let longitud = parseFloat(selectedOption.dataset.longitud);
+  //   let latlng = new google.maps.LatLng(latitud, longitud);
+  //   marker.setPosition(latlng);
+  //   map.panTo(latlng);
+  //   input_latitud.value = latitud;
+  //   input_longitud.value = longitud;
+  // });
 }
 
 window.initMap = initMap;

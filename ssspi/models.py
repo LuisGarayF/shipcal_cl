@@ -347,13 +347,14 @@ class Simulaciones(models.Model):
         db_table = 'auth_simulaciones'
 
     def __str__(self):
-        return f'{self.id_simulacion} {self.id_user.username}' 
+        return f'{self.id_simulacion} {self.id_user.username} {self.fecha_creacion}' 
     
 
     
 # Formulario Simulacion
 
 class FormSim(models.Model):
+    simulacion = models.OneToOneField(Simulaciones, on_delete=models.CASCADE, related_name='Simulacion')
     profile = models.ForeignKey(Profile, verbose_name='Usuario', on_delete=models.CASCADE, null=False)
     nombre_simulacion = models.CharField(
         max_length=100, blank=False, verbose_name="Nombre de simulación", unique=True)

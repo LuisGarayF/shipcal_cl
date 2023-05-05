@@ -4,7 +4,7 @@
 {% load materializecss %}
 <main class="container">
     <div class="row">
-      <h4 class="py-3">Crear nueva simulación</h4>
+      <h5 class="py-3">Crear nueva simulación</h5>
         <form class="form-horizontal my-5" name="simform" enctype="multipart/form-data" method="POST" id="simform">
             {% csrf_token %}
             <span>
@@ -71,7 +71,6 @@
                             
                                     });
                                 </script>
-                                <script type="text/javascript" src="{% static 'js/apiern.js' %}"></script>
                                 
                                 <div class="input-field col m6 s12">
                                     <a class="tooltipped" data-position="right" data-tooltip="Sector industrial en el que se encuentra la industria evaluada">
@@ -984,7 +983,7 @@
                 </li>
                 <li class="step card mx-2 resumen">
                     <div class="step-title waves-effect waves-dark">
-                        <h3>Resumen<h3>
+                        Resumen
                     </div>
                     <div class="step-content">
                         <div class="">
@@ -1489,8 +1488,9 @@
         <!-- Modal -->
         <div id="pdfModal" class="modal">
             <div class="modal-content">
+                <img src="{% static 'img/logotipo/logotipo.png' %}" alt="logotipo-gruposolaruc" class="img-responsive w-20">
                 <h4>Generando PDF</h4>
-                <p>Por favor espere...</p>
+                <p>El tiempo estimado es aproximadamente de 2 minutos.Por favor espere...</p>
             </div>
         </div>
     </div>

@@ -49,10 +49,8 @@ def register(request):
 @login_required
 def dashboardView(request):
     profile = Profile.objects.get(user=request.user)
-    simulaciones = FormSim.objects.filter(profile_id=profile.id)
+    simulaciones = Simulaciones.objects.filter(id_user=request.user).select_related('Simulacion')
     return render(request, 'dashboard.html', {'profile': profile, 'simulaciones': simulaciones})
-
-
 
 
 @login_required
@@ -272,27 +270,24 @@ def simulacion(request):
                            'HX_eff': efectividad, 'fuel_cost': costo_combustible, 'fuel_cost_units': unidad_costo_combustible, 'boiler_efficiency': eficiencia_caldera}
             
 
-            form = SimForm(nombre_simulacion=nombre_simulacion, sector=sector, aplicacion=aplicacion)
-            form.save()
-           
+            sim_form_instance = SimForm(nombre_simulacion=nombre_simulacion, sector=sector, aplicacion=aplicacion)
+            print(raw_results)
+            sim_form_instance.save()
 
             results = simulate_system(raw_results)
-            # plt.figure()
-            # plt.plot(results['t'], results['T_out_system'])
-            # plt.savefig(f'{BASE_DIR}\FE1\static\img\T_out_system.png')
-            # Heat_Map_bokeh(results, 'T_out_system')
-            #results_json = JsonResponse(raw_results)
-            
             results_json = json.dumps(results)
-            
-            return render(request, 'results.html', {'results': results_json})
 
+            # Crea y guarda una instancia de Simulaciones asociada al usuario autenticado
+            simulacion = Simulaciones(id_user=request.user, resultado=results_json)
+            simulacion.save()
+
+            return render(request, 'results.html', {'results': results_json})
         else:
-            form = FormSim(request.POST)
+            form = SimForm(request.POST)
     else:
         form = SimForm()
 
-    return render(request, 'simulacion.html', {'form': form, 'datos': datos, 'profile':profile, 'esquema_list': esquema_list})
+    return render(request, 'simulacion.html', {'form': form, 'datos': datos, 'profile': profile, 'esquema_list': esquema_list})
 
 
 # def resultados(request,Result):

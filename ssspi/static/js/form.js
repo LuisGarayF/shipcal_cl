@@ -766,6 +766,9 @@ async function downloadResume() {
         .marginTop {
             margin-top: 250px;
           }
+        .step-title{
+            font-size: 12px;
+        }
         `;
         clone.appendChild(newStyle);
       }
