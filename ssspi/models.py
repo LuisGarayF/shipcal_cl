@@ -354,13 +354,13 @@ class Simulaciones(models.Model):
 # Formulario Simulacion
 
 class FormSim(models.Model):
-    simulacion = models.OneToOneField(Simulaciones, on_delete=models.CASCADE, related_name='Simulacion')
-    profile = models.ForeignKey(Profile, verbose_name='Usuario', on_delete=models.CASCADE, null=False)
+    simulacion = models.OneToOneField(Simulaciones, on_delete=models.CASCADE, related_name='Simulacion', blank=True,null=True)
+    profile = models.ForeignKey(Profile, verbose_name='Usuario', on_delete=models.CASCADE, null=True, blank=True)
     nombre_simulacion = models.CharField(
         max_length=100, blank=False, verbose_name="Nombre de simulación", unique=True)
     sector = models.ForeignKey('Sector', on_delete=models.CASCADE, null=True)
-    aplicacion = models.ForeignKey(
-        'Aplicacion', on_delete=models.CASCADE, null=True, blank=True)
+    # aplicacion = models.ForeignKey(
+    #     'Aplicacion', on_delete=models.CASCADE, null=True, blank=True)
     ubicacion = models.ForeignKey(
         'Ubicacion', on_delete=models.CASCADE, blank=True, null=True)
     esquema = models.ForeignKey(

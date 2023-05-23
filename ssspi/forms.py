@@ -47,18 +47,9 @@ class ContactForm(forms.ModelForm):
 class SimForm(forms.ModelForm):
    
     sector = forms.ModelChoiceField(queryset=Sector.objects.all(),widget=forms.Select(attrs={'class': 'browser-default'}))
-    aplicacion = forms.ModelChoiceField(queryset= Aplicacion.objects.none(), to_field_name='aplicacion', widget=forms.Select(attrs={'class': 'browser-default'}), required=False)
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['aplicacion'].queryset = Aplicacion.objects.none()
-        
-        
-
-    def aplicacion_choices(self):
-        sector_id = self.data.get('sector')
-        if sector_id:
-            self.fields['aplicacion'].queryset = Aplicacion.objects.filter(sector_id=sector_id)
         
     
     nombre_ubicacion = forms.ModelChoiceField(queryset=Ubicacion.objects.all(), to_field_name='nombre_ubicacion',required=False, widget=forms.Select(attrs={'class': 'form-select'}), initial="Santiago")
@@ -86,21 +77,28 @@ class SimForm(forms.ModelForm):
     material_almacenamiento = forms.ModelChoiceField(queryset=Material_Almacenamiento.objects.all(), to_field_name='material_almacenamiento', widget=forms.Select(attrs={'class': 'form-select'}), required=False, empty_label="Material Almacenamiento", initial="Acero inoxidable")
     material_aislamiento = forms.ModelChoiceField(queryset=Material_Aislamiento.objects.all(), to_field_name='material_aislamiento', widget=forms.Select(attrs={'class': 'form-select'}), required=False, empty_label="Material Aislamiento", initial="Lana de vidrio")
     unidad_costo_combustible= forms.ModelChoiceField(queryset=Unidad_Costo_Combustible.objects.all(), to_field_name='unidad_costo_combustible', widget=forms.Select(attrs={'class': 'form-select'}), required=False, empty_label="Unidad Costo Combustible", initial="$/l") 
-    t_enero = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_febrero = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_marzo = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_abril = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_mayo = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_junio = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_julio = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_agosto = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_septiembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_octubre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_noviembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
-    t_diciembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}))
+    t_enero = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_febrero = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_marzo = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_abril = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_mayo = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_junio = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_julio = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_agosto = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_septiembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_octubre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_noviembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
+    t_diciembre = forms.FloatField(widget=forms.NumberInput(attrs={'readonly':'readonly'}), required=False)
     siglas_esquema = forms.CharField(required=False,widget=forms.TextInput(attrs={'readonly':'readonly'}))
-    imagen_esquema = forms.ImageField(label="Imagen")
-    
+    imagen_esquema = forms.ImageField(label="Imagen", required=False)
+
+    def __init__(self, *args, **kwargs):
+        extra_fields = kwargs.pop('extra_fields', [])
+        super().__init__(*args, **kwargs)
+        #super(SimForm, self).__init__(*args, **kwargs)
+
+        for field in extra_fields:
+            self.fields[field] = forms.FloatField()   
     
 
         

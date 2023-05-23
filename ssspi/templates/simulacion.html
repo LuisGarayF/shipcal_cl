@@ -9,19 +9,19 @@
             {% csrf_token %}
             <span>
                 {% if form.errors %}
-                <ul class="user-msg error">
-                {% for field in form %}
-                    {% for error in field.errors %}
-                        <li>
-                          {% if field != '__all__' %}
-                            <strong>{{ field.label }}:</strong>
-                          {% endif %}
-                          {{ error }}
-                        </li>
-                    {% endfor %}
-                {% endfor %}
-                </ul>
-            {% endif %}
+                    <ul class="user-msg error">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li>
+                                    {% if field != '__all__' %}
+                                        <strong>{{ field.label }}:</strong>
+                                    {% endif %}
+                                    {{ error }}
+                                </li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                {% endif %}
             </span>
             <ul class="stepper">
                 <li class="step active card mx-2" id="cont_ident">
@@ -31,7 +31,7 @@
                     <div class="step-content">
                         <div class="row content-card">
                             <div class="form-field col s6">
-                                <div class="input-field col s12">
+                                <div class="input-field col m6 s12">
                                     <a class="tooltipped" data-position="right" data-tooltip="Titulo para identificar la simulación">
                                         <label for="nombre_simulacion">Nombre simulación: <i class="material-icons prefix helper pl-2">help</i></label>
                                     </a>
@@ -39,52 +39,13 @@
                                     <span>{{form.nombre_simulacion.errors}}</span>
                                 </div>
                             </div>
-                            <div class="form-field col s12">
-                                <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-                                <script>
-                                    $(document).ready(function() {
-                                        $("#id_sector").change(function() {
-                                            updateAplicacion();
-                                        });
-                            
-                                        function updateAplicacion() {
-                                            var sector_id = $("#id_sector").val();
-                                            $.ajax({
-                                                type: "GET",
-                                                url: "{% url 'update_aplicacion' %}",
-                                                data: {
-                                                    'sector_id': sector_id
-                                                },
-                                                success: function(data) {
-                                                    var options = "";
-                                                    for (var i = 0; i < data.length; i++) {
-                                                        options += "<option value='" + data[i].id + "'>" + data[i].name + "</option>";
-                                                    }
-                                                    $("#id_aplicacion").html(options);
-                                                    //console.log(options);
-                                                },
-                                                error: function(error) {
-                                                    console.log(error);
-                                                }
-                                            });
-                                        }
-                            
-                                    });
-                                </script>
-                                
+                            <div class="form-field col s6">
                                 <div class="input-field col m6 s12">
                                     <a class="tooltipped" data-position="right" data-tooltip="Sector industrial en el que se encuentra la industria evaluada">
                                         <label id="id_label_sector" class="active"> Sector Industrial:  <i class="material-icons prefix helper pl-2">help</i></label>
                                     </a>
                                     {{ form.sector }}
                                     <span>{{form.sector.errors}}</span>
-                                </div>
-                                <div class="input-field col m6 s12">
-                                    <a class="tooltipped" data-position="right" data-tooltip="Opciones de aplicación segun sector industrial">
-                                        <label for="id_label_aplicacion" class="active" id="label_aplicacion"> Aplicación: <i class="material-icons prefix helper pl-2">help</i> </label>
-                                    </a>
-                                    {{ form.aplicacion }}
-                                    <span>{{form.aplicacion.errors}}</span>
                                 </div>
                             </div>
                             
@@ -1001,10 +962,6 @@
                                 <tr>
                                     <td> Sector Industrial</td>
                                     <td id="sector_res"></td>
-                                </tr>
-                                <tr>
-                                    <td> Aplicación Industrial</td>
-                                    <td id="aplicacion_res"></td>
                                 </tr>
                             </table>
                             <br>

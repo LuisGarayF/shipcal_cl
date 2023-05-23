@@ -3,445 +3,2206 @@
 Created on Sun Nov  6 10:35:24 2022
 
 @author: adria
-
-@modified:LGaray
 """
 
-from Simulacion.Solar_Field_San_Joaquin import Solar_Field_parallel, Solar_Field_series
+from Simulacion.Class_Solar_Field import Solar_Field
+from Simulacion.Class_Heat_Exchanger import Heat_Exchanger
 from Simulacion.Class_Storage import Storage_Tank
-from Simulacion.Class_Boiler import Boiler_HX
-from Simulacion.Class_Properties import Properties_water
-from Simulacion.simulation_functions import corr_exp_solar, Irradiance_2
-from math import cos, pi
+from Simulacion.Class_Properties import Properties
+from Simulacion.simulation_functions import zenith_function, azimuth_function, compute_monthly_flows, extract_weather_data, convert_power, convert_flow, convert_pressure, convert_demand, compute_cost_per_kJ, time_from_string, week_day_from_day, month_from_day, corr_exp_solar, compute_VAN, compute_TIR, compute_LCoH, compute_payback_time
+from math import sin, cos, pi
+from pvlib.solarposition import get_solarposition
+import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
-from matplotlib import pyplot as plt
-from timeit import default_timer
-from bokeh.io import export_png
-from bokeh.plotting import figure, show, output_file, save
-from bokeh.models import LinearColorMapper, ColorBar
-from bokeh.embed import components
-import os
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-system_params = {}
-
-def getdict():
+def Solar_HX_Tank(Field, HX, Tank, T_set, Boiler_type, boiler_nominal_power,
+                  boiler_efficiency, cost_per_conventional_kJ,
+                  work_day_list, monthly_flows, monthly_inlet_temperatures,
+                  monthly_mains_temperatures, t_start, t_end,
+                  PropsField, PropsHeatedFluid, mass_flow_field,
+                  sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+                  compute_zenith, compute_azimuth, corrected_time,
+                  time_step, tolerance, max_iterations):
     
-    file = f'{BASE_DIR}\Simulacion\dic\dict.py'
-    
-    with open(file, 'r', encoding="utf-8") as f:
-        system_params= f.read()
-        #print(system_params)
-    return system_params
-        
-
-
-
-
-def Heat_Map_bokeh(Result, variable):
-    print('Creando gráfico Heat Map...')
-    if len(Result[variable])%365 != 0:
-        print('Número de elementos en el vector de resultados no es válido')
-        return
-    time_steps_per_day = int( len( Result[variable] )/365 )
-    matrix = np.reshape(Result[variable], ( 365, time_steps_per_day ) )
-    matrix = np.transpose(matrix)
-    color = LinearColorMapper(palette = "Turbo256", low = min(Result[variable]), high = max(Result[variable]))
-    p = figure(tools="pan,wheel_zoom,box_zoom,reset",
-               width=800,height=600, x_axis_label = 'Día', y_axis_label = 'Hora del día')
-    p.title.text = variable + ' Map'
-    p.title.text_font_size = '15pt'
-    p.xaxis.axis_label = 'Día'
-    p.xaxis.axis_label_text_font_size = "15pt"
-    p.yaxis.axis_label = 'Hora del día'
-    p.yaxis.axis_label_text_font_size = "15pt"
-    
-    p.image(image=[matrix], x=0, y=0, dw=10, dh=10, color_mapper = color, level="image")
-        
-    p.yaxis.ticker = [ 0, 10/6, 10/3,
-                      5, 10*2/3,
-                      10*5/6, 10]
-    p.yaxis.major_label_overrides = { 0: '0',
-                                      10/6: '4',
-                                      10/3: '8',
-                                      5: '12',
-                                      10*2/3: '16',
-                                      10*5/6: '20',
-                                      10: '24'}
-    p.xaxis.ticker = [ 0, 10*50/365, 10*100/365,
-                      10*150/365, 10*200/365,
-                      10*250/365, 10*300/365, 10*350/365]
-    p.xaxis.major_label_overrides = { 0: '0',
-                                      10*50/365: '50',
-                                      10*100/365: '100',
-                                      10*150/365: '150',
-                                      10*200/365: '200',
-                                      10*250/365: '250',
-                                      10*300/365: '300',
-                                      10*350/365: '350'}
-    
-    cb = ColorBar(color_mapper = color, location = (5,6))
-    p.add_layout(cb, 'right')
-    output_file(filename=f'{BASE_DIR}\FE1\\templates\heatmap_graph.html')
-    
-    #show(p) MUESTRA EL ARCHIVO EN UNA VENTANA DIFERENTE
-    save(p)
-    export_png(p, filename=f'{BASE_DIR}\FE1\static\img\heatmap_graph.png')
-
-def Heat_Map(Result, variable):
-    if len(Result[variable])%365 != 0:
-        print('Número de elementos en el vector de resultados no es válido')
-        return
-    time_steps_per_day = int( len( Result[variable] )/365 )
-    yticks = [ 0, int(time_steps_per_day/6), int(time_steps_per_day/3),
-               int(time_steps_per_day/2), int(time_steps_per_day*2/3),
-               int(time_steps_per_day*5/6), time_steps_per_day]
-    ylabels = [0,4,8,12,16,20,24]
-    matrix = np.reshape(Result[variable], ( 365, time_steps_per_day ) )
-    matrix = np.transpose(matrix)
-    plt.matshow(matrix, cmap=plt.cm.jet)
-    plt.yticks(yticks, ylabels)
-    plt.colorbar()
-    plt.show()
-
-def monthly_work_hours(month, t_start, t_end, work_day_list):
-    if t_start == t_end:
-        daily_working_hours = 24
+    if T_set == PropsHeatedFluid.T_sat:
+        if Boiler_type in ['Convencional vapor', 'Condensación vapor']:
+            h_set = PropsHeatedFluid.h_sat_vap
+        else:
+            h_set = PropsHeatedFluid.h_sat_liq
     else:
-        daily_working_hours = t_end - t_start
-    work_hours = 0
-    for day in range(1,366):
-        if month_from_day(day) == month and week_day_from_day(day) in work_day_list:
-            work_hours = work_hours + daily_working_hours
-    return work_hours
-
-def monthly_flows(total_demand, monthly_demands, monthly_temperatures, work_day_list, t_start, t_end, T_set):
-    total_monthly = sum([ monthly_demands[i] for i in monthly_demands ])
-    cp = 4.184
-    month_flows = {}
-    for month in monthly_demands:
-        if monthly_work_hours(month, t_start, t_end, work_day_list) == 0:
-            month_flows[month] = 0
-        else:
-            demand_month = total_demand*monthly_demands[month]/total_monthly
-            m_month = demand_month/(cp*(T_set - monthly_temperatures[month]))
-            month_flows[month] = m_month/monthly_work_hours(month, t_start, t_end, work_day_list)
-    return month_flows
-
-def T_mains_profile(T_max, T_min):
-    T_mean = (T_max + T_min)/2
-    amplitude = (T_max - T_min)/2
-    return [ T_mean + amplitude*cos(2*pi*t/8760) for t in range(8760) ]
-
-def convert_power(original_value, original_units):
-    if original_units == 'kJ/h':
-        return original_value
-    if original_units == 'kW':
-        return original_value*3600
-
-def convert_flow(original_value, original_units):
-    if original_units == 'kg/h' or original_units == 'l/h':
-        return original_value
-    if original_units == 'kg/min' or original_units == 'l/min':
-        return original_value*60
-    if original_units == 'kg/s' or original_units == 'l/s':
-        return original_value*3600
-    if original_units == 'gpm':
-        return 227.125*original_value
+        h_set = PropsHeatedFluid.T_to_h(T_set)
     
-def convert_pressure(original_value, original_units):
-    if original_units == 'bar':
-        return original_value
-    if original_units == 'MPa':
-        return original_value*10
-    if original_units == 'psi':
-        return original_value*0.06895
-
-def convert_demand(original_value, original_units, fuel, boiler_type, boiler_efficiency):
-    if original_units == 'MJ':
-        return original_value*1000*boiler_efficiency
-    if original_units == 'kWh':
-        return original_value*3600*boiler_efficiency
-    if original_units == 'MWh':
-        return original_value*3600000*boiler_efficiency
-    if original_units == 'BTU':
-        return original_value*1.055*boiler_efficiency
-    if original_units == 'kcal':
-        return original_value*4.184*boiler_efficiency
-    if (fuel == 'Propano' or fuel == 'Butano') and original_units == 'l':
-        raise ValueError('No se puede expresar la demanda en litros cuando se usa un gas como combustible')
-    if fuel == 'Electricidad':
-        raise ValueError('El consumo eléctrico no puede expresarse en términos de kg, l ó m3')
-    if fuel == 'Propano':
-        fuel_density = 1.83
-        if boiler_type == 'Condensación':
-            fuel_heat_value = 50426
-        else:
-            fuel_heat_value = 46367
-    if fuel == 'Butano':
-        fuel_density = 2.52
-        if boiler_type == 'Condensación':
-            fuel_heat_value = 49652
-        else:
-            fuel_heat_value = 45765
-    if fuel == 'Biomasa':
-        fuel_density = 800
-        if boiler_type == 'Condensación':
-            fuel_heat_value = 19000
-        else:
-            fuel_heat_value = 17000
-    if fuel == 'Diesel':
-        fuel_density = 850
-        if boiler_type == 'Condensación':
-            fuel_heat_value = 45600
-        else:
-            fuel_heat_value = 42600
-    if original_units == 'L':
-        kJ_per_litre = fuel_density*fuel_heat_value/1000
-        return kJ_per_litre*original_value*boiler_efficiency
-    if original_units == 'm3':
-        kJ_per_m3 = fuel_density*fuel_heat_value
-        return kJ_per_m3*original_value*boiler_efficiency
-    if original_units == 'kg':
-        return fuel_heat_value*original_value*boiler_efficiency
-
-def compute_cost_per_kJ(fuel, cost, cost_units, boiler_type):
-    if cost_units == '$/kWh':
-        return cost/3600
-    if fuel == 'Electricidad':
-        raise ValueError('El costo de la electricidad solo puede expresarse en $/kWh')
-    if (fuel == 'Propano' or fuel == 'Butano') and cost_units == '$/l':
-        raise ValueError('El costo del gas no puede expresarse en $/l')
-    if fuel == 'Propano':
-        fuel_density = 1.83
-        if boiler_type == 'Condensación':
-            fuel_heat_value = 50426
-        else:
-            fuel_heat_value = 46367
-    if fuel == 'Butano':
-        fuel_density = 2.52
-        if boiler_type == 'Condensación':
-            fuel_heat_value = 49652
-        else:
-            fuel_heat_value = 45765
-    if fuel == 'Biomasa':
-        fuel_density = 800
-        fuel_heat_value = 18000   # No option for condensing boiler
-    if fuel == 'Diesel':
-        fuel_density = 850
-        fuel_heat_value = 42600   # No option for condensing boiler
-    if cost_units == '$/L':
-        kJ_per_litre = fuel_density*fuel_heat_value/1000
-        litres_per_kJ = 1/kJ_per_litre
-        return cost*litres_per_kJ
-    if cost_units == '$/m3':
-        kJ_per_m3 = fuel_density*fuel_heat_value
-        m3_per_kJ = 1/kJ_per_m3
-        return cost*m3_per_kJ
-    if cost_units == '$/kg':
-        kg_per_kJ = 1/fuel_heat_value
-        return cost*kg_per_kJ
-
-def time_from_string(string):
-    List = string.split(':')
-    time = int(List[0])
-    if List[1] == '30':
-        time = time + 0.5
-    return time
-
-def week_day_from_day(day):
-    week_day = day%7
-    if week_day == 1:
-        return 'Monday'
-    if week_day == 2:
-        return 'Tuesday'
-    if week_day == 3:
-        return 'Wednesday'
-    if week_day == 4:
-        return 'Thursday'
-    if week_day == 5:
-        return 'Friday'
-    if week_day == 6:
-        return 'Saturday'
-    if week_day == 0:
-        return 'Sunday'
-
-def month_from_day(day):
-    if day <= 31:
-        return 'January'
-    if day >= 32 and day <= 59:
-        return 'February'
-    if day >= 60 and day <= 90:
-        return 'March'
-    if day >= 91 and day <= 120:
-        return 'April'
-    if day >= 121 and day <= 151:
-        return 'May'
-    if day >= 152 and day <= 181:
-        return 'June'
-    if day >= 182 and day <= 212:
-        return 'July'
-    if day >= 213 and day <= 243:
-        return 'August'
-    if day >= 244 and day <= 273:
-        return 'September'
-    if day >= 274 and day <= 304:
-        return 'October'
-    if day >= 305 and day <= 334:
-        return 'November'
-    if day >= 335:
-        return 'December'
-
-def simulate_system(system_params):
-    """
-    Función capaz de simular cualquiera de los dos esquemas de integración considerados.
-
-    Parámetros
-    
-    La función recibe un solo diccionario como parámetro; este diccionario tiene las siguientes keys:
-        - 'sector'
-        - 'sim_name'
-        - 'application'
-        - 'processes'
-        - 'location'
-        - 'latitude'
-        - 'longitude'
-        - 'fuel_name'
-        - 'yearly_demand'
-        - 'yearly_demand_unit'
-        - 'demand_monday'
-        - 'demand_tuesday'
-        - 'demand_wednesday'
-        - 'demand_thursday'
-        - 'demand_friday'
-        - 'demand_saturday'
-        - 'demand_sunday'
-        - 'operation_start'
-        - 'operation_end'
-        - 'demand_january'
-        - 'demand_february'
-        - 'demand_march'
-        - 'demand_april'
-        - 'demand_may'
-        - 'demand_june'
-        - 'demand_july'
-        - 'demand_august'
-        - 'demand_september'
-        - 'demand_october'
-        - 'demand_november'
-        - 'demand_december'
-        - 'boiler_nominal_power'
-        - 'boiler_nominal_power_units'
-        - 'boiler_pressure'
-        - 'boiler_pressure_units'
-        - 'boiler_type'
-        - 'mains_inlet_temperature'
-        - 'return_inlet_temperature'
-        - 'temperature_january'
-        - 'temperature_february'
-        - 'temperature_march'
-        - 'temperature_april'
-        - 'temperature_may'
-        - 'temperature_june'
-        - 'temperature_july'
-        - 'temperature_august'
-        - 'temperature_september'
-        - 'temperature_october'
-        - 'temperature_november'
-        - 'temperature_december'
-        - 'outlet_temperature'
-        - 'integration_scheme_name'
-        - 'integration_scheme_initials'
-        - 'aperture_area'
-        - 'coll_n0'
-        - 'coll_price'
-        - 'coll_a2'
-        - 'coll_a1'
-        - 'coll_iam'
-        - 'coll_test_flow'
-        - 'coll_rows'
-        - 'colls_per_row'
-        - 'coll_tilt'
-        - 'coll_azimuth'
-        - 'field_mass_flow'
-        - 'field_mass_flow_units'
-        - 'fluid'
-        - 'tank_volume'
-        - 'tank_AR'
-        - 'tank_material'
-        - 'tank_insulation_material'
-        - 'HX_eff'
-        - 'fuel_cost'
-        - 'fuel_cost_units'
-        - 'coll_type'
-
-
-    Retorna:
+    t = 8760 - 24*10
+    previous_enthalpies = {'h_in_solar_field': PropsField.T_to_h(40), 'h_in_HX_load': PropsHeatedFluid.T_to_h(40)}
+    while t < 8760:
+                
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
         
-        Si el párametro 'integration_scheme_initials' es igual a 'PL_L_HB', los vectores en el diccionario son:
-            - 't': Valores de tiempo considerados durante la simulación (hr)
-            - 'rad': radiación incidente en el campo solar (kJ / ( m^2 * hr) ),
-            - 'm_demand': flujo de agua demandada (kg/hr),
-            - 'T_out_system': Temperatura del agua saliendo del sistema (°C)
-            - 'Q_Solar': Calor aportado por el campo solar (kJ / hr)
-            - 'Field_1_Q_useful': Calor aportado por el campo solar 1 (colectores planos) (kJ / hr)
-            - 'Field_2_Q_useful': Calor aportado por el campo solar 2 (tubo evacuado) (kJ / hr)
-            - 'Field_1_Q_waste': Calor purgado del campo solar 1 (colectores planos) (kJ / hr)
-            - 'Field_2_Q_waste': Calor purgado del campo solar 2 (tubo evacuado) (kJ / hr)
-            
-        Si el párametro 'integration_scheme_initials' es igual a 'SL_L_SC', los vectores en el diccionario son:
-            - 't': Valores de tiempo considerados durante la simulación (hr)
-            - 'T_out_system': Temperatura del agua saliendo del sistema (°C)
-            - 'T_out_Solar_Field': Temperatura del agua saliendo del intercambiador de calor del campo solar (flujo demandado) (°C)
-            - 'T_out_Tank': Temperatura del agua saliendo del estanque de almacenamiento (°C)
-            - 'Q_Solar':  Calor total aportado por el campo solar (colectores planos y de tubo evacuado) (kJ / hr)
-            - 'Q_Boiler': Calor aportado por el boiler (kJ / hr)
-            - 'Time_step_fuel_cost': Costo del combustible consumido durante el time step ($)
-            - 'Field_1_Q_useful': Calor útil aportado por el campo solar 1 (colectores planos) (kJ / hr)
-            - 'Field_2_Q_useful': Calor útil aportado por el campo solar 2 (tubo evacuado) (kJ / hr)
-            - 'Field_1_Q_waste': Calor purgado por el campo solar 1 (colectores planos) (kJ / hr)
-            - 'Field_2_Q_waste': Calor purgado por el campo solar 2 (tubo evacuado) (kJ / hr)
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            if solar_field_operation:
+                it = 0
+                while True:
+                    Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'],
+                                                          h_mains_field, rad, IAM_eff, T_amb)
+                    HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'],
+                                                    mass_flow_field, previous_enthalpies['h_in_HX_load'], h_mains)
+                    Tank_outputs = Tank.compute_outputs(mass_flow_field, HX_outputs['h_out_load'],
+                                                        demanded_flow, h_in_system,
+                                                        None, None, None, None,
+                                                        T_amb, time_step)
+                    it = it + 1
+                    if (abs(HX_outputs['h_out_source'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                        abs(Tank_outputs['outlet_1_h'] - previous_enthalpies['h_in_HX_load'])/previous_enthalpies['h_in_HX_load'] < tolerance):
+                        maxIt = False
+                        break
+                    if it == max_iterations:
+                        maxIt = True
+                        break
+                    previous_enthalpies = {'h_in_solar_field': HX_outputs['h_out_source'], 'h_in_HX_load': Tank_outputs['outlet_1_h']}
+            else:
+                Tank_outputs = Tank.compute_outputs(0, h_mains,
+                                                    demanded_flow, h_mains,
+                                                    None, None, None, None,
+                                                    T_amb, time_step)
+        else:
+            Tank_outputs = Tank.compute_outputs(0, h_mains,
+                                                0, h_mains,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+        Tank.update_temperature()
+        t = np.round(t + time_step, 2)
+    
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'storage_tank_outlet_temperature(C)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'power_extracted_from_tank(W)': [],
+              'aux_heater_power(W)': [],
+              'demanded_flow_temperature(C)': [],
+              'conventional_energy_cost': [],
+              'aux_heater_nominal_power_surpassed': [],
+              'setPoint_Temp_surpassed': [],
+              'system_maximum_iterations_reached': [],
+              'tank_maximum_iterations_reached': [] }
+    t = 0
+    while t < 8760:
+                
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            if solar_field_operation:
+                it = 0
+                while True:
+                    Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'],
+                                                          h_mains_field, rad, IAM_eff, T_amb)
+                    HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'],
+                                                    mass_flow_field, previous_enthalpies['h_in_HX_load'], h_mains)
+                    Tank_outputs = Tank.compute_outputs(mass_flow_field, HX_outputs['h_out_load'],
+                                                        demanded_flow, h_in_system,
+                                                        None, None, None, None,
+                                                        T_amb, time_step)
+                    it = it + 1
+                    if (abs(HX_outputs['h_out_source'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                        abs(Tank_outputs['outlet_1_h'] - previous_enthalpies['h_in_HX_load'])/previous_enthalpies['h_in_HX_load'] < tolerance):
+                        maxIt = False
+                        break
+                    if it == max_iterations:
+                        maxIt = True
+                        break
+                    previous_enthalpies = {'h_in_solar_field': HX_outputs['h_out_source'], 'h_in_HX_load': Tank_outputs['outlet_1_h']}
+                
+                useful_solar_power = HX_outputs['Q_useful']
+                wasted_solar_power = Field_outputs['Q_waste'] + HX_outputs['Q_waste']
+                
+            else:
+                maxIt = False
+                Tank_outputs = Tank.compute_outputs(0, h_mains,
+                                                    demanded_flow, h_mains,
+                                                    None, None, None, None,
+                                                    T_amb, time_step)
+                
+                useful_solar_power = 0
+                wasted_solar_power = 0
 
-    """
-    print('Ejecutando simulación. Espere...')
-    #getdict()
+            T_out_Tank = PropsHeatedFluid.h_to_T(Tank_outputs['outlet_2_h'])
+            if T_out_Tank > T_set:
+                boiler_power = 0
+                T_out_boiler = T_out_Tank
+                T_set_surpassed = True
+                boiler_nominal_power_surpassed = False
+            else:
+                T_set_surpassed = False
+                boiler_power = demanded_flow*(h_set - Tank_outputs['outlet_2_h'])
+                
+                if boiler_power > boiler_nominal_power:
+                    boiler_nominal_power_surpassed = True
+                    boiler_power = boiler_nominal_power
+                    T_out_boiler = PropsHeatedFluid.h_to_T(Tank_outputs['outlet_2_h'] + boiler_power/demanded_flow)
+                else:
+                    boiler_nominal_power_surpassed = False
+                    T_out_boiler = T_set
+            
+            
+        else:
+            maxIt = False
+            Tank_outputs = Tank.compute_outputs(0, h_mains,
+                                                0, h_mains,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+
+            boiler_power  = 0
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            T_set_surpassed = False
+            boiler_nominal_power_surpassed = False
+            T_out_boiler = np.nan
+        
+        TES_power = Tank_outputs['Q_demand']
+        T_out_system = T_out_boiler
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+        
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['storage_tank_outlet_temperature(C)'].append(PropsHeatedFluid.h_to_T(Tank_outputs['outlet_2_h']))
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['power_extracted_from_tank(W)'].append(TES_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['aux_heater_nominal_power_surpassed'].append(boiler_nominal_power_surpassed)
+        Result['setPoint_Temp_surpassed'].append(T_set_surpassed)
+        Result['system_maximum_iterations_reached'].append(maxIt)
+        Result['tank_maximum_iterations_reached'].append(Tank_outputs['maxIt'])
+        
+        Tank.update_temperature()
+        t = np.round(t + time_step, 2)
+        
+    return Result
+
+
+def NP_IE_ACS__NS_L_SI(Field, HX, T_set, Boiler_type, boiler_nominal_power,
+                       boiler_efficiency, cost_per_conventional_kJ,
+                       work_day_list, monthly_flows, monthly_inlet_temperatures,
+                       monthly_mains_temperatures, t_start, t_end,
+                       PropsField, PropsHeatedFluid, mass_flow_field,
+                       sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+                       compute_zenith, compute_azimuth, corrected_time,
+                       time_step, tolerance, max_iterations):
     
-    boiler_efficiency = 0.8
-    m_source_boiler = 1000
-    frac_field_1 = 0.6
+    if T_set == PropsHeatedFluid.T_sat:
+        if Boiler_type in ['Convencional vapor', 'Condensación vapor']:
+            h_set = PropsHeatedFluid.h_sat_vap
+        else:
+            h_set = PropsHeatedFluid.h_sat_liq
+    else:
+        h_set = PropsHeatedFluid.T_to_h(T_set)
     
-    yearly_energy_demand = convert_demand(system_params['yearly_demand'],
-                                          system_params['yearly_demand_unit'],
-                                          system_params['fuel_name'],
-                                          system_params['boiler_type'], boiler_efficiency)
+    h_in_solar_field = PropsField.T_to_h(40)
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'heat_exchanger_load_outlet_temperature(C)': [],
+              'demanded_flow_temperature(C)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'aux_heater_power(W)': [],
+              'conventional_energy_cost': [],
+              'aux_heater_nominal_power_surpassed': [],
+              'setPoint_Temp_surpassed': [],
+              'system_maximum_iterations_reached': [] }
+    t = 0
+    while t < 8760:
+                
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            if solar_field_operation:
+                it = 0
+                while True:
+                    Field_outputs = Field.compute_outputs(mass_flow_field, h_in_solar_field, h_mains_field, rad, IAM_eff, T_amb)
+                    HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], demanded_flow, h_in_system, h_mains)
+                    it = it + 1
+                    if abs(HX_outputs['h_out_source'] - h_in_solar_field)/h_in_solar_field < tolerance:
+                        maxIt = False
+                        break
+                    if it == max_iterations:
+                        maxIt = True
+                        break
+                    h_in_solar_field = HX_outputs['h_out_source']
+                    
+                T_out_HX = PropsHeatedFluid.h_to_T(HX_outputs['h_out_load'])
+                
+                if T_out_HX > T_set:
+                    boiler_power = 0
+                    T_out_boiler = T_out_HX
+                    boiler_nominal_power_surpassed = False
+                    T_set_surpassed = True
+                else:
+                    T_set_surpassed = False
+                    boiler_power = demanded_flow*(h_set - HX_outputs['h_out_load'])
+                    
+                    if boiler_power > boiler_nominal_power:
+                        boiler_nominal_power_surpassed = True
+                        boiler_power = boiler_nominal_power
+                        T_out_boiler = PropsHeatedFluid.h_to_T(HX_outputs['h_out_load'] + boiler_power/demanded_flow)
+                    else:
+                        boiler_nominal_power_surpassed = False
+                        T_out_boiler = T_set
+                
+                useful_solar_power = HX_outputs['Q_useful']
+                wasted_solar_power = Field_outputs['Q_waste'] + HX_outputs['Q_waste']
+                heat_exchanger_load_outlet_temperature = PropsHeatedFluid.h_to_T(HX_outputs['h_out_load'])
+                    
+            else:
+                T_set_surpassed = False
+                maxIt = False
+                
+                boiler_power = demanded_flow*(h_set - h_in_system)
+                
+                if boiler_power > boiler_nominal_power:
+                    boiler_nominal_power_surpassed = True
+                    boiler_power = boiler_nominal_power
+                    T_out_boiler = PropsHeatedFluid.h_to_T(h_in_system + boiler_power/demanded_flow)
+                else:
+                    boiler_nominal_power_surpassed = False
+                    T_out_boiler = T_set
+                
+                useful_solar_power = 0
+                wasted_solar_power = 0
+                heat_exchanger_load_outlet_temperature = PropsHeatedFluid.h_to_T(h_in_system)
+        
+        else:
+            T_set_surpassed = False
+            maxIt = False
+            boiler_power = 0
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_nominal_power_surpassed = False
+            T_out_boiler = np.nan
+            heat_exchanger_load_outlet_temperature = np.nan
+        
+        T_out_system = T_out_boiler
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+            
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['heat_exchanger_load_outlet_temperature(C)'].append(heat_exchanger_load_outlet_temperature)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['aux_heater_nominal_power_surpassed'].append(boiler_nominal_power_surpassed)
+        Result['setPoint_Temp_surpassed'].append(T_set_surpassed)
+        Result['system_maximum_iterations_reached'].append(maxIt)
+
+        t = np.round(t + time_step, 2)
+        
+    return Result
     
-    monthly_demands = {'January': system_params['demand_january'],
-                       'February': system_params['demand_february'],
-                       'March': system_params['demand_march'],
-                       'April': system_params['demand_april'],
-                       'May': system_params['demand_may'],
-                       'June': system_params['demand_june'],
-                       'July': system_params['demand_july'],
-                       'August': system_params['demand_august'],
-                       'September': system_params['demand_september'],
-                       'October': system_params['demand_october'],
-                       'November': system_params['demand_november'],
-                       'December': system_params['demand_december']}
+
+def NS_L_PD(Field, T_set, boiler_nominal_power,
+            boiler_efficiency, cost_per_conventional_kJ,
+            work_day_list, monthly_flows, monthly_inlet_temperatures,
+            monthly_mains_temperatures, t_start, t_end,
+            PropsHeatedFluid, sky_diff_func, ground_diff_func, DNI_func,
+            T_amb_func, compute_zenith, compute_azimuth, corrected_time,
+            time_step, tolerance, max_iterations):
     
-    monthly_temperatures = {'January': system_params['temperature_january'],
-                            'February': system_params['temperature_february'],
-                            'March': system_params['temperature_march'],
-                            'April': system_params['temperature_april'],
-                            'May': system_params['temperature_may'],
-                            'June': system_params['temperature_june'],
-                            'July': system_params['temperature_july'],
-                            'August': system_params['temperature_august'],
-                            'September': system_params['temperature_september'],
-                            'October': system_params['temperature_october'],
-                            'November': system_params['temperature_november'],
-                            'December': system_params['temperature_december']}
+    if T_set >= PropsHeatedFluid.T_sat:
+        h_set = PropsHeatedFluid.h_sat_liq
+    else:
+        h_set = PropsHeatedFluid.T_to_h(T_set)
+        
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'solar_field_outlet_temperature(C)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'aux_heater_power(W)': [],
+              'aux_heater_outlet_temperature(C)': [],
+              'demanded_flow_temperature(C)': [],
+              'conventional_energy_cost': [],
+              'aux_heater_nominal_power_surpassed': [],
+              'setPoint_Temp_surpassed': [],
+              'system_maximum_iterations_reached': [] }
+    t = 0
+    while t < 8760:
+        
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                
+                flow_in_solar_field = demanded_flow
+                Field_outputs = Field.compute_outputs(flow_in_solar_field, h_in_system, h_mains, rad, IAM_eff, T_amb)
+                
+                if Field_outputs['h_out'] >= h_set or Field_outputs['Q_waste'] > 0:
+                    h_out_solar_field = Field_outputs['h_out']
+                    T_out_solar_field = PropsHeatedFluid.h_to_T(h_out_solar_field)
+                    h_out_system = h_out_solar_field
+                    T_out_system = T_out_solar_field
+                    useful_solar_power = Field_outputs['Q_useful']
+                    wasted_solar_power = Field_outputs['Q_waste']
+                    flow_in_solar_field = demanded_flow
+                    flow_in_boiler = 0
+                    boiler_power = 0
+                    maxIt = False
+                    boiler_nominal_power_surpassed = False
+                    T_out_boiler = np.nan
+                    if Field_outputs['h_out'] > h_set:
+                        T_set_surpassed = True
+                    else:
+                        T_set_surpassed = False
+                        
+                
+                else:
+                    it = 0
+                    while True:
+                        field_total_power = Field_outputs['Q_useful']
+                        if field_total_power == 0:
+                            maxIt = False
+                            h_out_solar_field = h_in_system
+                            T_out_solar_field = np.nan
+                            useful_solar_power = 0
+                            wasted_solar_power = 0
+                            flow_in_solar_field = 0
+                            flow_in_boiler = demanded_flow
+                            break
+                        flow_in_solar_field = field_total_power/(h_set - h_in_system)
+                        if flow_in_solar_field < demanded_flow*0.05:
+                            maxIt = False
+                            h_out_solar_field = h_in_system
+                            T_out_solar_field = np.nan
+                            useful_solar_power = 0
+                            wasted_solar_power = 0
+                            flow_in_solar_field = 0
+                            flow_in_boiler = demanded_flow
+                            break
+                        flow_in_boiler = demanded_flow - flow_in_solar_field
+                        Field_outputs = Field.compute_outputs(flow_in_solar_field, h_in_system, h_mains, rad, IAM_eff, T_amb)
+                        h_out_solar_field = Field_outputs['h_out']
+                        T_out_solar_field = PropsHeatedFluid.h_to_T(h_out_solar_field)
+                        useful_solar_power = Field_outputs['Q_useful']
+                        wasted_solar_power = Field_outputs['Q_waste']
+                        it = it + 1
+                        if abs(Field_outputs['h_out'] - h_set)/h_set < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                    
+                    boiler_power = flow_in_boiler*(h_set - h_in_system)
+                    
+                    if boiler_power > boiler_nominal_power:
+                        boiler_nominal_power_surpassed = True
+                        boiler_power = boiler_nominal_power
+                        h_out_boiler = h_in_system + boiler_power/flow_in_boiler
+                        T_out_boiler = PropsHeatedFluid.h_to_T(h_out_boiler)
+                    else:
+                        boiler_nominal_power_surpassed = False
+                        h_out_boiler = h_set
+                        T_out_boiler = T_set
+                    
+                    T_set_surpassed = False
+                    h_out_system = (flow_in_boiler*h_out_boiler + flow_in_solar_field*h_out_solar_field)/demanded_flow
+                    T_out_system = PropsHeatedFluid.h_to_T(h_out_system)
+            
+            else:
+                
+                T_set_surpassed = False
+                
+                maxIt = False
+                flow_in_solar_field = 0
+                flow_in_boiler = demanded_flow
+                
+                boiler_power = flow_in_boiler*(h_set - h_in_system)
+                
+                if boiler_power > boiler_nominal_power:
+                    boiler_nominal_power_surpassed = True
+                    boiler_power = boiler_nominal_power
+                    h_out_boiler = h_in_system + boiler_power/flow_in_boiler
+                    T_out_boiler = PropsHeatedFluid.h_to_T(h_out_boiler)
+                else:
+                    boiler_nominal_power_surpassed = False
+                    h_out_boiler = h_set
+                    T_out_boiler = T_set
+                    
+                h_out_system = h_out_boiler
+                T_out_system = T_out_boiler
+                
+                h_out_solar_field = h_in_system
+                T_out_solar_field = np.nan
+                
+                useful_solar_power = 0
+                wasted_solar_power = 0
+                
+        else:
+            
+            maxIt = False
+            boiler_power = 0
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_nominal_power_surpassed = False
+            T_set_surpassed = False
+            T_out_boiler = np.nan
+            T_out_solar_field = np.nan
+            T_out_system = np.nan
+            
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+        
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['solar_field_outlet_temperature(C)'].append(T_out_solar_field)
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['aux_heater_outlet_temperature(C)'].append(T_out_boiler)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['aux_heater_nominal_power_surpassed'].append(boiler_nominal_power_surpassed)
+        Result['setPoint_Temp_surpassed'].append(T_set_surpassed)
+        Result['system_maximum_iterations_reached'].append(maxIt)
+        
+        t = np.round(t + time_step, 2)
+    
+    return Result
+
+
+def NS_L_PI(Field, HX, T_set, Boiler_type, boiler_nominal_power,
+            boiler_efficiency, cost_per_conventional_kJ,
+            work_day_list, monthly_flows, monthly_inlet_temperatures,
+            monthly_mains_temperatures, t_start, t_end,
+            PropsHeatedFluid, PropsField, mass_flow_field,
+            sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+            compute_zenith, compute_azimuth, corrected_time,
+            time_step, tolerance, max_iterations):
+    
+    if T_set >= PropsHeatedFluid.T_sat:
+        h_set = PropsHeatedFluid.h_sat_liq
+    else:
+        h_set = PropsHeatedFluid.T_to_h(T_set)
+        
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'heat_exchanger_load_outlet_temperature(C)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'aux_heater_power(W)': [],
+              'aux_heater_outlet_temperature(C)': [],
+              'demanded_flow_temperature(C)': [],
+              'conventional_energy_cost': [],
+              'aux_heater_nominal_power_surpassed': [],
+              'setPoint_Temp_surpassed': [],
+              'flow_maximum_iterations_reached': [],
+              'solar_field_loop_maximum_iterations_reached': []}
+    t = 0
+    while t < 8760:
+        
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                
+                flow_in_HX_load = demanded_flow
+                h_in_solar_field = PropsField.T_to_h(40)
+                it2 = 0
+                while True:
+                    Field_outputs = Field.compute_outputs(mass_flow_field, h_in_solar_field, h_mains_field, rad, IAM_eff, T_amb)
+                    HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], flow_in_HX_load, h_in_system, h_mains)
+                    it2 = it2 + 1
+                    if abs(HX_outputs['h_out_source'] - h_in_solar_field)/h_in_solar_field < tolerance:
+                        maxIt2 = False
+                        break
+                    if it2 == max_iterations:
+                        maxIt2 = True
+                        break
+                    h_in_solar_field = HX_outputs['h_out_source']
+                
+                if HX_outputs['h_out_load'] >= h_set:
+                    h_out_HX_load = HX_outputs['h_out_load']
+                    T_out_HX_load = PropsHeatedFluid.h_to_T(h_out_HX_load)
+                    h_out_system = h_out_HX_load
+                    T_out_system = T_out_HX_load
+                    useful_solar_power = HX_outputs['Q_useful']
+                    wasted_solar_power = Field_outputs['Q_waste'] + HX_outputs['Q_waste']
+                    flow_in_HX_load = demanded_flow
+                    flow_in_boiler = 0
+                    boiler_power = 0
+                    maxIt1 = False
+                    boiler_nominal_power_surpassed = False
+                    T_out_boiler = np.nan
+                    if HX_outputs['h_out_load'] > h_set:
+                        T_set_surpassed = True
+                    else:
+                        T_set_surpassed = False
+                
+                else:
+                    it1 = 0
+                    while True:
+                        field_power = Field_outputs['Q_useful']
+                        if field_power == 0:
+                            maxIt1 = False
+                            h_out_HX_load = h_in_system
+                            T_out_HX_load = np.nan
+                            useful_solar_power = 0
+                            wasted_solar_power = 0
+                            flow_in_HX_load = 0
+                            flow_in_boiler = demanded_flow
+                            break
+                        flow_in_HX_load = field_power/(h_set - h_in_system)
+                        if flow_in_HX_load < demanded_flow*0.05:
+                            maxIt1 = False
+                            h_out_HX_load = h_in_system
+                            T_out_HX_load = np.nan
+                            useful_solar_power = 0
+                            wasted_solar_power = 0
+                            flow_in_HX_load = 0
+                            flow_in_boiler = demanded_flow
+                            break
+                        flow_in_boiler = demanded_flow - flow_in_HX_load
+                        it2 = 0
+                        while True:
+                            Field_outputs = Field.compute_outputs(mass_flow_field, h_in_solar_field, h_mains_field, rad, IAM_eff, T_amb)
+                            HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], flow_in_HX_load, h_in_system, h_mains)
+                            it2 = it2 + 1
+                            if abs(HX_outputs['h_out_source'] - h_in_solar_field)/h_in_solar_field < tolerance:
+                                maxIt2 = False
+                                break
+                            if it2 == max_iterations:
+                                maxIt2 = True
+                                break
+                            h_in_solar_field = HX_outputs['h_out_source']
+                        h_out_HX_load = HX_outputs['h_out_load']
+                        T_out_HX_load = PropsHeatedFluid.h_to_T(h_out_HX_load)
+                        useful_solar_power = HX_outputs['Q_useful']
+                        wasted_solar_power = Field_outputs['Q_waste'] + HX_outputs['Q_waste']
+                        it1 = it1 + 1
+                        if abs(HX_outputs['h_out_load'] - h_set)/h_set < tolerance:
+                            maxIt1 = False
+                            break
+                        if it1 == max_iterations:
+                            maxIt1 = True
+                            break
+                    
+                    boiler_power = flow_in_boiler*(h_set - h_in_system)
+                    
+                    if boiler_power > boiler_nominal_power:
+                        boiler_nominal_power_surpassed = True
+                        boiler_power = boiler_nominal_power
+                        h_out_boiler = h_in_system + boiler_power/flow_in_boiler
+                        T_out_boiler = PropsHeatedFluid.h_to_T(h_out_boiler)
+                    else:
+                        boiler_nominal_power_surpassed = False
+                        h_out_boiler = h_set
+                        T_out_boiler = T_set
+                    
+                    T_set_surpassed = False
+                    h_out_system = (flow_in_boiler*h_out_boiler + flow_in_HX_load*h_out_HX_load)/demanded_flow
+                    T_out_system = PropsHeatedFluid.h_to_T(h_out_system)
+            
+            else:
+                
+                T_set_surpassed = False
+                
+                maxIt1 = False
+                maxIt2 = False
+                flow_in_HX_load = 0
+                flow_in_boiler = demanded_flow
+                
+                boiler_power = flow_in_boiler*(h_set - h_in_system)
+                
+                if boiler_power > boiler_nominal_power:
+                    boiler_nominal_power_surpassed = True
+                    boiler_power = boiler_nominal_power
+                    h_out_boiler = h_in_system + boiler_power/flow_in_boiler
+                    T_out_boiler = PropsHeatedFluid.h_to_T(h_out_boiler)
+                else:
+                    boiler_nominal_power_surpassed = False
+                    h_out_boiler = h_set
+                    T_out_boiler = T_set
+                    
+                h_out_system = h_out_boiler
+                T_out_system = T_out_boiler
+                
+                h_out_HX_load = h_in_system
+                T_out_HX_load = np.nan
+                
+                useful_solar_power = 0
+                wasted_solar_power = 0
+                
+        else:
+            
+            maxIt1 = False
+            maxIt2 = False
+            boiler_power = 0
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_nominal_power_surpassed = False
+            T_set_surpassed = False
+            T_out_boiler = np.nan
+            T_out_HX_load = np.nan
+            T_out_system = np.nan
+            
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+        
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['heat_exchanger_load_outlet_temperature(C)'].append(T_out_HX_load)
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['aux_heater_outlet_temperature(C)'].append(T_out_boiler)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['aux_heater_nominal_power_surpassed'].append(boiler_nominal_power_surpassed)
+        Result['setPoint_Temp_surpassed'].append(T_set_surpassed)
+        Result['flow_maximum_iterations_reached'].append(maxIt1)
+        Result['solar_field_loop_maximum_iterations_reached'].append(maxIt2)
+        
+        t = np.round(t + time_step, 2)
+    
+    return Result
+
+def NS_L_CA_1(Field, Tank, T_set, boiler_nominal_power,
+              boiler_efficiency, cost_per_conventional_kJ,
+              work_day_list, monthly_flows, monthly_inlet_temperatures,
+              monthly_mains_temperatures, t_start, t_end,
+              PropsHeatedFluid, PropsField, PropsBoiler, mass_flow_field,
+              sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+              compute_zenith, compute_azimuth, corrected_time,
+              time_step, tolerance, max_iterations):
+    
+    if T_set > PropsHeatedFluid.T_sat - 5:
+        T_set = PropsHeatedFluid.T_sat - 5
+    
+    boiler_mass_flow = 1.2*max([ monthly_flows[i] for i in monthly_flows ])
+    
+    previous_enthalpies = {'h_in_solar_field': PropsField.T_to_h(40), 'h_in_boiler': PropsBoiler.T_to_h(40)}
+    boiler_state = 'OFF'
+
+    t = 8760 - 24*10
+    while t < 8760:
+        
+        day_now = int(t/24) + 1
+        month_now = month_from_day(day_now)
+        week_day_now = week_day_from_day(day_now)
+        day_time_now = corrected_time(t)%24
+        
+        day_next_hour = int(t/24) + 1
+        month_next_hour = month_from_day(day_next_hour)
+        week_day_next_hour = week_day_from_day(day_next_hour)
+        day_time_next_hour = corrected_time(t + 1)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month_now]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month_now]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+            
+        operation_now = ( (t_start == t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or 
+                          (t_start < t_end and day_time_now >= t_start and day_time_now <= t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or
+                          (t_start > t_end and (day_time_now >= t_start or day_time_now <= t_end) and monthly_flows[month_now] > 0 and week_day_now in work_day_list) )
+        
+        operation_next_hour = ( (t_start == t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or 
+                                (t_start < t_end and day_time_next_hour >= t_start and day_time_next_hour <= t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or
+                                (t_start > t_end and (day_time_next_hour >= t_start or day_time_next_hour <= t_end) and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) )
+        
+        if operation_now:
+            system_operation = True
+            demanded_flow = monthly_flows[month_now]
+        elif operation_next_hour:
+            system_operation = True
+            demanded_flow = 0
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if Tank.node_temperatures[1] >= T_set + 2:
+            boiler_state = 'OFF'
+        if Tank.node_temperatures[1] <= T_set:
+            boiler_state = 'ON'
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            mass_flow_field, Field_outputs['h_out'], boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if (abs(Tank_outputs['HX1_outlet_h'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                            abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance ):
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies = {'h_in_solar_field': Tank_outputs['HX1_outlet_h'], 'h_in_boiler': Tank_outputs['HX2_outlet_h']}
+                    
+                if boiler_state == 'OFF':
+                    
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            mass_flow_field, Field_outputs['h_out'], None, None,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if abs(Tank_outputs['HX1_outlet_h'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_solar_field'] = Tank_outputs['HX1_outlet_h']
+                
+            else:
+
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            None, None, boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_boiler'] = Tank_outputs['HX2_outlet_h']
+                
+                if boiler_state == 'OFF':
+
+                    Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                        None, None, None, None,
+                                                        T_amb, time_step)
+                    
+        else:
+            
+            Tank_outputs = Tank.compute_outputs(0, h_mains, 0, h_in_system,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+        
+        Tank.update_temperature()
+        
+        t = np.round(t + time_step, 2)
+
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'aux_heater_power(W)': [],
+              'demanded_flow_temperature(C)': [],
+              'power_extracted_from_tank(W)': [],
+              'conventional_energy_cost': [],
+              'system_maximum_iterations_reached': [],
+              'tank_maximum_iterations_reached': [] }
+    t = 0
+    while t < 8760:
+        
+        day_now = int(t/24) + 1
+        month_now = month_from_day(day_now)
+        week_day_now = week_day_from_day(day_now)
+        day_time_now = corrected_time(t)%24
+        
+        day_next_hour = int(t/24) + 1
+        month_next_hour = month_from_day(day_next_hour)
+        week_day_next_hour = week_day_from_day(day_next_hour)
+        day_time_next_hour = corrected_time(t + 1)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month_now]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month_now]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+            
+        operation_now = ( (t_start == t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or 
+                          (t_start < t_end and day_time_now >= t_start and day_time_now <= t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or
+                          (t_start > t_end and (day_time_now >= t_start or day_time_now <= t_end) and monthly_flows[month_now] > 0 and week_day_now in work_day_list) )
+        
+        operation_next_hour = ( (t_start == t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or 
+                                (t_start < t_end and day_time_next_hour >= t_start and day_time_next_hour <= t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or
+                                (t_start > t_end and (day_time_next_hour >= t_start or day_time_next_hour <= t_end) and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) )
+        
+        if operation_now:
+            system_operation = True
+            demanded_flow = monthly_flows[month_now]
+        elif operation_next_hour:
+            system_operation = True
+            demanded_flow = 0
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if Tank.node_temperatures[1] >= T_set + 2:
+            boiler_state = 'OFF'
+        if Tank.node_temperatures[1] <= T_set:
+            boiler_state = 'ON'
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            mass_flow_field, Field_outputs['h_out'], boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if (abs(Tank_outputs['HX1_outlet_h'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                            abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance ):
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies = {'h_in_solar_field': Tank_outputs['HX1_outlet_h'], 'h_in_boiler': Tank_outputs['HX2_outlet_h']}
+                    
+                    useful_solar_power = Tank_outputs['HX1_Q']
+                    wasted_solar_power = Field_outputs['Q_waste']
+                    boiler_power = Tank_outputs['HX2_Q']
+                    
+                if boiler_state == 'OFF':
+                    
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            mass_flow_field, Field_outputs['h_out'], None, None,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if abs(Tank_outputs['HX1_outlet_h'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_solar_field'] = Tank_outputs['HX1_outlet_h']
+                        
+                    useful_solar_power = Tank_outputs['HX1_Q']
+                    wasted_solar_power = Field_outputs['Q_waste']
+                    boiler_power = 0
+                
+            else:
+
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            None, None, boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_boiler'] = Tank_outputs['HX2_outlet_h']
+                        
+                    useful_solar_power = 0
+                    wasted_solar_power = 0
+                    boiler_power = Tank_outputs['HX2_Q']
+                
+                if boiler_state == 'OFF':
+
+                    Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                        None, None, None, None,
+                                                        T_amb, time_step)
+                    
+                    useful_solar_power = 0
+                    wasted_solar_power = 0
+                    boiler_power = 0
+                    maxIt = False
+                    
+        else:
+            
+            Tank_outputs = Tank.compute_outputs(0, h_mains, 0, h_in_system,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_power = 0
+            maxIt = False
+            
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+        T_out_system = PropsHeatedFluid.h_to_T(Tank_outputs['outlet_2_h'])
+        TES_power = Tank_outputs['Q_demand']
+        
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['power_extracted_from_tank(W)'].append(TES_power/3.6)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['system_maximum_iterations_reached'].append(maxIt)
+        Result['tank_maximum_iterations_reached'].append(Tank_outputs['maxIt'])
+        
+        Tank.update_temperature()
+        
+        t = np.round(t + time_step, 2)
+    
+    return Result
+
+
+
+def NS_L_CA_2(Field, Tank, HX, T_set, boiler_nominal_power,
+              boiler_efficiency, cost_per_conventional_kJ,
+              work_day_list, monthly_flows, monthly_inlet_temperatures,
+              monthly_mains_temperatures, t_start, t_end,
+              PropsHeatedFluid, PropsField, PropsBoiler, mass_flow_field,
+              sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+              compute_zenith, compute_azimuth, corrected_time,
+              time_step, tolerance, max_iterations):
+    
+    if T_set > PropsHeatedFluid.T_sat - 5:
+        T_set = PropsHeatedFluid.T_sat - 5
+    
+    boiler_mass_flow = 1.2*max([ monthly_flows[i] for i in monthly_flows ])
+    heat_exchanger_load_flow = mass_flow_field 
+    
+    previous_enthalpies = {'h_in_solar_field': PropsField.T_to_h(40), 'h_in_HX_load': PropsHeatedFluid.T_to_h(40), 'h_in_boiler': PropsBoiler.T_to_h(40)}
+    boiler_state = 'OFF'
+
+    t = 8760 - 24*10
+    while t < 8760:
+        
+        day_now = int(t/24) + 1
+        month_now = month_from_day(day_now)
+        week_day_now = week_day_from_day(day_now)
+        day_time_now = corrected_time(t)%24
+        
+        day_next_hour = int(t/24) + 1
+        month_next_hour = month_from_day(day_next_hour)
+        week_day_next_hour = week_day_from_day(day_next_hour)
+        day_time_next_hour = corrected_time(t + 1)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month_now]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month_now]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+            
+        operation_now = ( (t_start == t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or 
+                          (t_start < t_end and day_time_now >= t_start and day_time_now <= t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or
+                          (t_start > t_end and (day_time_now >= t_start or day_time_now <= t_end) and monthly_flows[month_now] > 0 and week_day_now in work_day_list) )
+        
+        operation_next_hour = ( (t_start == t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or 
+                                (t_start < t_end and day_time_next_hour >= t_start and day_time_next_hour <= t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or
+                                (t_start > t_end and (day_time_next_hour >= t_start or day_time_next_hour <= t_end) and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) )
+        
+        if operation_now:
+            system_operation = True
+            demanded_flow = monthly_flows[month_now]
+        elif operation_next_hour:
+            system_operation = True
+            demanded_flow = 0
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if Tank.node_temperatures[1] >= T_set + 2:
+            boiler_state = 'OFF'
+        if Tank.node_temperatures[1] <= T_set:
+            boiler_state = 'ON'
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], heat_exchanger_load_flow, previous_enthalpies['h_in_HX_load'], h_mains)
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(heat_exchanger_load_flow, HX_outputs['h_out_load'], demanded_flow, h_in_system,
+                                                            None, None, boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if (abs(HX_outputs['h_out_source'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                            abs(Tank_outputs['outlet_1_h'] - previous_enthalpies['h_in_HX_load'])/previous_enthalpies['h_in_HX_load'] < tolerance and
+                            abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance ):
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies = {'h_in_solar_field': HX_outputs['h_out_source'], 'h_in_HX_load': Tank_outputs['outlet_1_h'], 'h_in_boiler': Tank_outputs['HX2_outlet_h']}
+                    
+                if boiler_state == 'OFF':
+                    
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], heat_exchanger_load_flow, previous_enthalpies['h_in_HX_load'], h_mains)
+                        Tank_outputs = Tank.compute_outputs(heat_exchanger_load_flow, HX_outputs['h_out_load'], demanded_flow, h_in_system,
+                                                            None, None, None, None,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if (abs(HX_outputs['h_out_source'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                            abs(Tank_outputs['outlet_1_h'] - previous_enthalpies['h_in_HX_load'])/previous_enthalpies['h_in_HX_load'] < tolerance):
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_solar_field'] =  HX_outputs['h_out_source']
+                        previous_enthalpies['h_in_HX_load'] = Tank_outputs['outlet_1_h']
+                
+            else:
+
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            None, None, boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_boiler'] = Tank_outputs['HX2_outlet_h']
+                
+                if boiler_state == 'OFF':
+
+                    Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                        None, None, None, None,
+                                                        T_amb, time_step)
+                
+        else:
+            
+            Tank_outputs = Tank.compute_outputs(0, h_mains, 0, h_in_system,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+        
+        Tank.update_temperature()
+        
+        t = np.round(t + time_step, 2)
+
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'aux_heater_power(W)': [],
+              'demanded_flow_temperature(C)': [],
+              'power_extracted_from_tank(W)': [],
+              'conventional_energy_cost': [],
+              'system_maximum_iterations_reached': [],
+              'tank_maximum_iterations_reached': [] }
+    t = 0
+    while t < 8760:
+        
+        day_now = int(t/24) + 1
+        month_now = month_from_day(day_now)
+        week_day_now = week_day_from_day(day_now)
+        day_time_now = corrected_time(t)%24
+        
+        day_next_hour = int(t/24) + 1
+        month_next_hour = month_from_day(day_next_hour)
+        week_day_next_hour = week_day_from_day(day_next_hour)
+        day_time_next_hour = corrected_time(t + 1)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month_now]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month_now]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+            
+        operation_now = ( (t_start == t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or 
+                          (t_start < t_end and day_time_now >= t_start and day_time_now <= t_end and monthly_flows[month_now] > 0 and week_day_now in work_day_list) or
+                          (t_start > t_end and (day_time_now >= t_start or day_time_now <= t_end) and monthly_flows[month_now] > 0 and week_day_now in work_day_list) )
+        
+        operation_next_hour = ( (t_start == t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or 
+                                (t_start < t_end and day_time_next_hour >= t_start and day_time_next_hour <= t_end and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) or
+                                (t_start > t_end and (day_time_next_hour >= t_start or day_time_next_hour <= t_end) and monthly_flows[month_next_hour] > 0 and week_day_next_hour in work_day_list) )
+        
+        if operation_now:
+            system_operation = True
+            demanded_flow = monthly_flows[month_now]
+        elif operation_next_hour:
+            system_operation = True
+            demanded_flow = 0
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if Tank.node_temperatures[1] >= T_set + 2:
+            boiler_state = 'OFF'
+        if Tank.node_temperatures[1] <= T_set:
+            boiler_state = 'ON'
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], heat_exchanger_load_flow, previous_enthalpies['h_in_HX_load'], h_mains)
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(heat_exchanger_load_flow, HX_outputs['h_out_load'], demanded_flow, h_in_system,
+                                                            None, None, boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if (abs(HX_outputs['h_out_source'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                            abs(Tank_outputs['outlet_1_h'] - previous_enthalpies['h_in_HX_load'])/previous_enthalpies['h_in_HX_load'] < tolerance and
+                            abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance ):
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies = {'h_in_solar_field': HX_outputs['h_out_source'], 'h_in_HX_load': Tank_outputs['outlet_1_h'], 'h_in_boiler': Tank_outputs['HX2_outlet_h']}
+                    
+                    useful_solar_power = HX_outputs['Q_useful']
+                    wasted_solar_power = Field_outputs['Q_waste'] + HX_outputs['Q_waste']
+                    boiler_power = Tank_outputs['HX2_Q']
+                    
+                if boiler_state == 'OFF':
+                    
+                    it = 0
+                    while True:
+                        Field_outputs = Field.compute_outputs(mass_flow_field, previous_enthalpies['h_in_solar_field'], h_mains_field, rad, IAM_eff, T_amb)
+                        HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], heat_exchanger_load_flow, previous_enthalpies['h_in_HX_load'], h_mains)
+                        Tank_outputs = Tank.compute_outputs(heat_exchanger_load_flow, HX_outputs['h_out_load'], demanded_flow, h_in_system,
+                                                            None, None, None, None,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if (abs(HX_outputs['h_out_source'] - previous_enthalpies['h_in_solar_field'])/previous_enthalpies['h_in_solar_field'] < tolerance and
+                            abs(Tank_outputs['outlet_1_h'] - previous_enthalpies['h_in_HX_load'])/previous_enthalpies['h_in_HX_load'] < tolerance):
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_solar_field'] =  HX_outputs['h_out_source']
+                        previous_enthalpies['h_in_HX_load'] = Tank_outputs['outlet_1_h']
+                    
+                    useful_solar_power = HX_outputs['Q_useful']
+                    wasted_solar_power = Field_outputs['Q_waste'] + HX_outputs['Q_waste']
+                    boiler_power = 0
+                
+            else:
+
+                if boiler_state == 'ON':
+                    it = 0
+                    while True:
+                        h_out_boiler = previous_enthalpies['h_in_boiler'] + boiler_nominal_power/boiler_mass_flow
+                        if h_out_boiler > PropsBoiler.h_sat_liq:
+                            h_out_boiler = PropsBoiler.h_sat_liq
+                        Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                            None, None, boiler_mass_flow, h_out_boiler,
+                                                            T_amb, time_step)
+                        it = it + 1
+                        if abs(Tank_outputs['HX2_outlet_h'] - previous_enthalpies['h_in_boiler'])/previous_enthalpies['h_in_boiler'] < tolerance:
+                            maxIt = False
+                            break
+                        if it == max_iterations:
+                            maxIt = True
+                            break
+                        previous_enthalpies['h_in_boiler'] = Tank_outputs['HX2_outlet_h']
+                        
+                    useful_solar_power = 0
+                    wasted_solar_power = 0
+                    boiler_power = Tank_outputs['HX2_Q']
+                
+                if boiler_state == 'OFF':
+
+                    Tank_outputs = Tank.compute_outputs(0, h_mains, demanded_flow, h_in_system,
+                                                        None, None, None, None,
+                                                        T_amb, time_step)
+                    
+                    useful_solar_power = 0
+                    wasted_solar_power = 0
+                    boiler_power = 0
+                    maxIt = False
+                    
+        else:
+                        
+            Tank_outputs = Tank.compute_outputs(0, h_mains, 0, h_in_system,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_power = 0
+            maxIt = False
+            
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+        T_out_system = PropsHeatedFluid.h_to_T(Tank_outputs['outlet_2_h'])
+        TES_power = Tank_outputs['Q_demand']
+        
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['power_extracted_from_tank(W)'].append(TES_power/3.6)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['system_maximum_iterations_reached'].append(maxIt)
+        Result['tank_maximum_iterations_reached'].append(Tank_outputs['maxIt'])
+        
+        Tank.update_temperature()
+        
+        t = np.round(t + time_step, 2)
+    
+    return Result
+
+    
+def NS_L_CA_MU(Field, Tank, HX, T_set, boiler_nominal_power,
+               boiler_efficiency, cost_per_conventional_kJ,
+               work_day_list, monthly_flows, monthly_inlet_temperatures,
+               monthly_mains_temperatures, t_start, t_end,
+               PropsHeatedFluid, PropsField, mass_flow_field,
+               sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+               compute_zenith, compute_azimuth, corrected_time,
+               time_step, tolerance, max_iterations):
+    
+    if T_set >= PropsHeatedFluid.T_sat:
+        h_set = PropsHeatedFluid.h_sat_liq
+    else:
+        h_set = PropsHeatedFluid.T_to_h(T_set)
+        
+    flow_returned_to_tank = max([ monthly_flows[i] for i in monthly_flows ])
+    
+    h_in_solar_field = PropsField.T_to_h(40)
+    t = 8760 - 24*10
+    while t < 8760:
+        
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                it_solar = 0
+                while True:
+                    Field_outputs = Field.compute_outputs(mass_flow_field, h_in_solar_field, h_mains_field, rad, IAM_eff, T_amb)
+                    HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], demanded_flow, h_in_system, h_mains)
+                    it_solar = it_solar + 1
+                    if abs(HX_outputs['h_out_source'] - h_in_solar_field)/h_in_solar_field < tolerance:
+                        maxIt_solar = False
+                        break
+                    if it_solar == max_iterations:
+                        maxIt_solar = True
+                        break
+                    h_in_solar_field = HX_outputs['h_out_source']
+                    
+                useful_solar_power = HX_outputs['Q_useful']
+                wasted_solar_power = HX_outputs['Q_waste'] + Field_outputs['Q_waste']
+                
+                Tank_outputs = Tank.compute_outputs(demanded_flow, HX_outputs['h_out_load'], flow_returned_to_tank, h_set,
+                                                    None, None, None, None,
+                                                    T_amb, time_step)
+                
+                h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                if h_in_boiler >= h_set:
+                    maxIt_boiler = False
+                    boiler_power = 0
+                    h_out_system = h_in_boiler
+                else:
+                    boiler_power = (demanded_flow + flow_returned_to_tank)*(h_set - h_in_boiler)
+                
+                    if boiler_power > boiler_nominal_power:
+                        h_out_boiler_previous = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                        it_boiler = 0
+                        while True:
+                            Tank_outputs = Tank.compute_outputs(demanded_flow, HX_outputs['h_out_load'], flow_returned_to_tank, h_out_boiler_previous,
+                                                                None, None, None, None,
+                                                                T_amb, time_step)
+                            h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                            h_out_boiler = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                            it_boiler = it_boiler + 1
+                            if abs(h_out_boiler - h_out_boiler_previous)/h_out_boiler_previous < tolerance:
+                                maxIt_boiler = False
+                                break
+                            if it_boiler == max_iterations:
+                                maxIt_boiler = True
+                                break
+                            h_out_boiler_previous = h_out_boiler
+                        
+                        h_out_system = h_out_boiler
+                        boiler_power = boiler_nominal_power
+                
+                    else:
+                        maxIt_boiler = False
+                        h_out_system = h_set
+                
+            else:
+                
+                maxIt_solar = False
+                useful_solar_power = 0
+                wasted_solar_power = 0
+                
+                Tank_outputs = Tank.compute_outputs(demanded_flow, h_in_system, flow_returned_to_tank, h_set,
+                                                    None, None, None, None,
+                                                    T_amb, time_step)
+                
+                h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                if h_in_boiler >= h_set:
+                    maxIt_boiler = False
+                    boiler_power = 0
+                    h_out_system = h_in_boiler
+                else:
+                    boiler_power = (demanded_flow + flow_returned_to_tank)*(h_set - h_in_boiler)
+                
+                    if boiler_power > boiler_nominal_power:
+                        h_out_boiler_previous = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                        it_boiler = 0
+                        while True:
+                            Tank_outputs = Tank.compute_outputs(demanded_flow, h_in_system, flow_returned_to_tank, h_out_boiler_previous,
+                                                                None, None, None, None,
+                                                                T_amb, time_step)
+                            h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                            h_out_boiler = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                            it_boiler = it_boiler + 1
+                            if abs(h_out_boiler - h_out_boiler_previous)/h_out_boiler_previous < tolerance:
+                                maxIt_boiler = False
+                                break
+                            if it_boiler == max_iterations:
+                                maxIt_boiler = True
+                                break
+                            h_out_boiler_previous = h_out_boiler
+                        
+                        h_out_system = h_out_boiler
+                        boiler_power = boiler_nominal_power
+                    
+                    else:
+                        maxIt_boiler = False
+                        h_out_system = h_set
+                        
+        else:
+            maxIt_boiler = False
+            maxIt_solar = False
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_power = 0
+            T_out_system = np.nan
+
+            Tank_outputs = Tank.compute_outputs(0, h_mains, 0, h_mains,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+            
+        Tank.update_temperature()
+        
+        t = np.round(t + time_step, 2)
+    
+    Result = {'t(hr)': [],
+              'system_operation': [],
+              'solar_field_operation': [],
+              'total_irradiance_on_collector_plane(W/m2)': [],
+              'useful_solar_power(W)': [],
+              'wasted_solar_power(W)': [],
+              'tank_outlet_temperature': [],
+              'power_extracted_from_tank(W)': [],
+              'aux_heater_power(W)': [],
+              'demanded_flow_temperature(C)': [],
+              'conventional_energy_cost': [],
+              'aux_heater_nominal_power_surpassed': [],
+              'setPoint_Temp_surpassed': [],
+              'solar_loop_maximum_iterations_reached': [],
+              'boiler_outlet_temperature_maximum_iterations_reached': [],
+              'tank_maximum_iterations_reached': [] }
+    t = 0
+    while t < 8760:
+        
+        day = int(t/24) + 1
+        month = month_from_day(day)
+        week_day = week_day_from_day(day)
+        day_time = corrected_time(t)%24
+        
+        sky_diffuse = float(sky_diff_func(t))
+        ground_diffuse = float(ground_diff_func(t))
+        DNIrr = float(DNI_func(t))
+        T_amb = float(T_amb_func(t))
+        T_in_system = monthly_inlet_temperatures[month]
+        h_in_system = PropsHeatedFluid.T_to_h(T_in_system)
+        T_mains = monthly_mains_temperatures[month]
+        h_mains = PropsHeatedFluid.T_to_h(T_mains)
+        h_mains_field = PropsField.T_to_h(T_mains)
+        demanded_flow = monthly_flows[month]
+        
+        aoi, longi, trans = Field.incidence_angles(float(compute_zenith(t)), float(compute_azimuth(t)))
+        if aoi == None:
+            rad = sky_diffuse + ground_diffuse
+        else:
+            beam_rad = DNIrr*cos(aoi)
+            rad = beam_rad + sky_diffuse + ground_diffuse
+        
+        if t_start == t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start < t_end and day_time >= t_start and day_time <= t_end and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        elif t_start > t_end and (day_time >= t_start or day_time <= t_end) and demanded_flow > 0 and week_day in work_day_list:
+            system_operation = True
+        else:
+            system_operation = False
+            solar_field_operation = False
+        
+        if system_operation:
+            if rad > 0:
+                solar_field_operation = True
+                if aoi == None:
+                    IAM_eff = (sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+                else:
+                    beam_iam = Field.IAM_func(aoi, longi, trans)
+                    IAM_eff = (beam_rad*beam_iam + sky_diffuse*Field.sky_diffuse_iam + ground_diffuse*Field.ground_diffuse_iam)/rad
+            else:
+                solar_field_operation = False
+            
+            if solar_field_operation:
+                it_solar = 0
+                while True:
+                    Field_outputs = Field.compute_outputs(mass_flow_field, h_in_solar_field, h_mains_field, rad, IAM_eff, T_amb)
+                    HX_outputs = HX.compute_outputs(mass_flow_field, Field_outputs['h_out'], demanded_flow, h_in_system, h_mains)
+                    it_solar = it_solar + 1
+                    if abs(HX_outputs['h_out_source'] - h_in_solar_field)/h_in_solar_field < tolerance:
+                        maxIt_solar = False
+                        break
+                    if it_solar == max_iterations:
+                        maxIt_solar = True
+                        break
+                    h_in_solar_field = HX_outputs['h_out_source']
+                    
+                useful_solar_power = HX_outputs['Q_useful']
+                wasted_solar_power = HX_outputs['Q_waste'] + Field_outputs['Q_waste']
+                
+                Tank_outputs = Tank.compute_outputs(demanded_flow, HX_outputs['h_out_load'], flow_returned_to_tank, h_set,
+                                                    None, None, None, None,
+                                                    T_amb, time_step)
+                
+                h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                if h_in_boiler >= h_set:
+                    maxIt_boiler = False
+                    boiler_power = 0
+                    boiler_nominal_power_surpassed = False
+                    h_out_system = h_in_boiler
+                    if h_in_boiler > h_set:
+                        T_set_surpassed = True
+                    else:
+                        T_set_surpassed = False
+                else:
+                    T_set_surpassed = False
+                    boiler_power = (demanded_flow + flow_returned_to_tank)*(h_set - h_in_boiler)
+                
+                    if boiler_power > boiler_nominal_power:
+                        boiler_nominal_power_surpassed = True
+                        h_out_boiler_previous = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                        it_boiler = 0
+                        while True:
+                            Tank_outputs = Tank.compute_outputs(demanded_flow, HX_outputs['h_out_load'], flow_returned_to_tank, h_out_boiler_previous,
+                                                                None, None, None, None,
+                                                                T_amb, time_step)
+                            h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                            h_out_boiler = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                            it_boiler = it_boiler + 1
+                            if abs(h_out_boiler - h_out_boiler_previous)/h_out_boiler_previous < tolerance:
+                                maxIt_boiler = False
+                                break
+                            if it_boiler == max_iterations:
+                                maxIt_boiler = True
+                                break
+                            h_out_boiler_previous = h_out_boiler
+                        
+                        h_out_system = h_out_boiler
+                        boiler_power = boiler_nominal_power
+                
+                    else:
+                        boiler_nominal_power_surpassed = False
+                        maxIt_boiler = False
+                        h_out_system = h_set
+                
+            else:
+                
+                maxIt_solar = False
+                useful_solar_power = 0
+                wasted_solar_power = 0
+                
+                Tank_outputs = Tank.compute_outputs(demanded_flow, h_in_system, flow_returned_to_tank, h_set,
+                                                    None, None, None, None,
+                                                    T_amb, time_step)
+                
+                h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                if h_in_boiler >= h_set:
+                    maxIt_boiler = False
+                    boiler_power = 0
+                    boiler_nominal_power_surpassed = False
+                    h_out_system = h_in_boiler
+                    if h_in_boiler > h_set:
+                        T_set_surpassed = True
+                    else:
+                        T_set_surpassed = False
+                else:
+                    T_set_surpassed = False
+                    boiler_power = (demanded_flow + flow_returned_to_tank)*(h_set - h_in_boiler)
+                
+                    if boiler_power > boiler_nominal_power:
+                        boiler_nominal_power_surpassed = True
+                        h_out_boiler_previous = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                        it_boiler = 0
+                        while True:
+                            Tank_outputs = Tank.compute_outputs(demanded_flow, h_in_system, flow_returned_to_tank, h_out_boiler_previous,
+                                                                None, None, None, None,
+                                                                T_amb, time_step)
+                            h_in_boiler = (demanded_flow*Tank_outputs['outlet_1_h'] + flow_returned_to_tank*Tank_outputs['outlet_2_h'])/(demanded_flow + flow_returned_to_tank)
+                            h_out_boiler = h_in_boiler + boiler_nominal_power/(demanded_flow + flow_returned_to_tank)
+                            it_boiler = it_boiler + 1
+                            if abs(h_out_boiler - h_out_boiler_previous)/h_out_boiler_previous < tolerance:
+                                maxIt_boiler = False
+                                break
+                            if it_boiler == max_iterations:
+                                maxIt_boiler = True
+                                break
+                            h_out_boiler_previous = h_out_boiler
+                        
+                        h_out_system = h_out_boiler
+                        boiler_power = boiler_nominal_power
+                    
+                    else:
+                        boiler_nominal_power_surpassed = False
+                        maxIt_boiler = False
+                        h_out_system = h_set
+            
+            T_out_system = PropsHeatedFluid.h_to_T(h_out_system)
+                        
+        else:
+            
+            boiler_nominal_power_surpassed = False
+            T_set_surpassed = False
+            maxIt_boiler = False
+            maxIt_solar = False
+            useful_solar_power = 0
+            wasted_solar_power = 0
+            boiler_power = 0
+            T_out_system = np.nan
+            
+            Tank_outputs = Tank.compute_outputs(0, h_mains, 0, h_mains,
+                                                None, None, None, None,
+                                                T_amb, time_step)
+            
+            h_in_boiler = Tank_outputs['outlet_1_h']
+            
+        T_out_Tank = PropsHeatedFluid.h_to_T(h_in_boiler)
+        conventional_energy_cost = boiler_power*time_step*cost_per_conventional_kJ/boiler_efficiency
+        TES_power = Tank_outputs['Q_demand']
+        
+        Result['t(hr)'].append(t)
+        Result['system_operation'].append(system_operation)
+        Result['solar_field_operation'].append(solar_field_operation)
+        Result['total_irradiance_on_collector_plane(W/m2)'].append(rad/3.6)
+        Result['useful_solar_power(W)'].append(useful_solar_power/3.6)
+        Result['wasted_solar_power(W)'].append(wasted_solar_power/3.6)
+        Result['tank_outlet_temperature'].append(T_out_Tank)
+        Result['power_extracted_from_tank(W)'].append(TES_power/3.6)
+        Result['aux_heater_power(W)'].append(boiler_power/3.6)
+        Result['demanded_flow_temperature(C)'].append(T_out_system)
+        Result['conventional_energy_cost'].append(conventional_energy_cost)
+        Result['aux_heater_nominal_power_surpassed'].append(boiler_nominal_power_surpassed)
+        Result['setPoint_Temp_surpassed'].append(T_set_surpassed)
+        Result['solar_loop_maximum_iterations_reached'].append(maxIt_solar)
+        Result['boiler_outlet_temperature_maximum_iterations_reached'].append(maxIt_boiler)
+        Result['tank_maximum_iterations_reached'].append(Tank_outputs['maxIt'])
+        
+        Tank.update_temperature()
+        
+        t = np.round(t + time_step, 2)
+    
+    return Result
+
+def simulate_system(system_params, time_step = 0.1, tolerance = 1e-6, max_iterations = 100):
+    
+    TMY_file_name = system_params['TMY_file_name']
+    if not TMY_file_name[len(TMY_file_name)-4:] == '.csv':
+        TMY_file_name = TMY_file_name + '.csv'
+    latitude, longitude, weather_data = corr_exp_solar(TMY_file_name)
+    year_list, DNI, GHI, DHI, temp = extract_weather_data(weather_data)
+    
+    albedo = 0.25
+    sky_diff = 0.5*( 1 + cos(system_params['coll_tilt']*pi/180) )*np.array(DHI)
+    ground_diff = 0.5*albedo*( 1 - cos(system_params['coll_tilt']*pi/180) )*np.array(GHI)
+    
+    time_january = pd.date_range(str(year_list[0]) + '-01-01', str(year_list[0]) + '-02-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_february = pd.date_range(str(year_list[1]) + '-02-01', str(year_list[1]) + '-03-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_march = pd.date_range(str(year_list[2]) + '-03-01', str(year_list[2]) + '-04-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_april = pd.date_range(str(year_list[3]) + '-04-01', str(year_list[3]) + '-05-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_may = pd.date_range(str(year_list[4]) + '-05-01', str(year_list[4]) + '-06-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_june = pd.date_range(str(year_list[5]) + '-06-01', str(year_list[5]) + '-07-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_july = pd.date_range(str(year_list[6]) + '-07-01', str(year_list[6]) + '-08-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_august = pd.date_range(str(year_list[7]) + '-08-01', str(year_list[7]) + '-09-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_september = pd.date_range(str(year_list[8]) + '-09-01', str(year_list[8]) + '-10-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_october = pd.date_range(str(year_list[9]) + '-10-01', str(year_list[9]) + '-11-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_november = pd.date_range(str(year_list[10]) + '-11-01', str(year_list[10]) + '-12-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    time_december = pd.date_range(str(year_list[11]) + '-12-01', str(year_list[11] + 1) + '-01-01', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+
+    if len(time_february) == 41760:
+        time_february = pd.date_range(str(year_list[1]) + '-02-01', str(year_list[1]) + '-02-29', inclusive='left', freq='min', tz = 'Etc/GMT+3')
+    
+    solpos_january = get_solarposition(time_january, latitude, longitude)
+    azimuth_january = solpos_january['azimuth']
+    zenith_january = solpos_january['zenith']
+    
+    solpos_february = get_solarposition(time_february, latitude, longitude)
+    azimuth_february = solpos_february['azimuth']
+    zenith_february = solpos_february['zenith']
+    
+    solpos_march = get_solarposition(time_march, latitude, longitude)
+    azimuth_march = solpos_march['azimuth']
+    zenith_march = solpos_march['zenith']
+    
+    solpos_april = get_solarposition(time_april, latitude, longitude)
+    azimuth_april = solpos_april['azimuth']
+    zenith_april = solpos_april['zenith']
+    
+    solpos_may = get_solarposition(time_may, latitude, longitude)
+    azimuth_may = solpos_may['azimuth']
+    zenith_may = solpos_may['zenith']
+    
+    solpos_june = get_solarposition(time_june, latitude, longitude)
+    azimuth_june = solpos_june['azimuth']
+    zenith_june = solpos_june['zenith']
+    
+    solpos_july = get_solarposition(time_july, latitude, longitude)
+    azimuth_july = solpos_july['azimuth']
+    zenith_july = solpos_july['zenith']
+    
+    solpos_august = get_solarposition(time_august, latitude, longitude)
+    azimuth_august = solpos_august['azimuth']
+    zenith_august = solpos_august['zenith']
+    
+    solpos_september = get_solarposition(time_september, latitude, longitude)
+    azimuth_september = solpos_september['azimuth']
+    zenith_september = solpos_september['zenith']
+    
+    solpos_october = get_solarposition(time_october, latitude, longitude)
+    azimuth_october = solpos_october['azimuth']
+    zenith_october = solpos_october['zenith']
+    
+    solpos_november = get_solarposition(time_november, latitude, longitude)
+    azimuth_november = solpos_november['azimuth']
+    zenith_november = solpos_november['zenith']
+    
+    solpos_december = get_solarposition(time_december, latitude, longitude)
+    azimuth_december = solpos_december['azimuth']
+    zenith_december = solpos_december['zenith']
+    
+    solar_azimuth_list = (azimuth_january.tolist() +
+                          azimuth_february.tolist() +
+                          azimuth_march.tolist() +
+                          azimuth_april.tolist() +
+                          azimuth_may.tolist() +
+                          azimuth_june.tolist() +
+                          azimuth_july.tolist() +
+                          azimuth_august.tolist() +
+                          azimuth_september.tolist() +
+                          azimuth_october.tolist() +
+                          azimuth_november.tolist() +
+                          azimuth_december.tolist() )
+    
+    solar_zenith_list = (zenith_january.tolist() +
+                         zenith_february.tolist() +
+                         zenith_march.tolist() +
+                         zenith_april.tolist() +
+                         zenith_may.tolist() +
+                         zenith_june.tolist() +
+                         zenith_july.tolist() +
+                         zenith_august.tolist() +
+                         zenith_september.tolist() +
+                         zenith_october.tolist() +
+                         zenith_november.tolist() +
+                         zenith_december.tolist() )
+    
+    compute_azimuth = azimuth_function(solar_azimuth_list)
+    compute_zenith = zenith_function(solar_zenith_list)
+    
+    time = range(8761)
+
+    sky_diff_func = interp1d(time, sky_diff)
+    ground_diff_func = interp1d(time, ground_diff)
+    DNI_func = interp1d(time, DNI)
+    T_amb_func = interp1d(time, temp)
+    
+    
+    temp_january = np.mean(temp[:744])
+    temp_february = np.mean(temp[744:1416])
+    temp_march = np.mean(temp[1416:2160])
+    temp_april = np.mean(temp[2160:2880])
+    temp_may = np.mean(temp[2880:3624])
+    temp_june = np.mean(temp[3624:4344])
+    temp_july = np.mean(temp[4344:5088])
+    temp_august = np.mean(temp[5088:5832])
+    temp_september = np.mean(temp[5832:6552])
+    temp_october = np.mean(temp[6552:7296])
+    temp_november = np.mean(temp[7296:8016])
+    temp_december = np.mean(temp[8016:8760])
+    T_month_list = [temp_january,
+                    temp_february,
+                    temp_march,
+                    temp_april,
+                    temp_may,
+                    temp_june,
+                    temp_july,
+                    temp_august,
+                    temp_september,
+                    temp_october,
+                    temp_november,
+                    temp_december ]
+    T_amb_ann = np.mean(temp)
+    delta_T_amb = ( max(T_month_list) - min(T_month_list) )/2
+    delta_T_offset = 3.3333333
+    T_ref = 6.6666667
+    K1 = 0.4
+    K2 = 0.018
+    K3 = 35*pi/180
+    K4 = -3.1416e-4
+    delta_T_mains = (K1 + K2*(T_amb_ann - T_ref))*delta_T_amb
+    phi_lag = K3 + K4*(T_amb_ann - T_ref)
+    phi_amb = (104.8 + 180)*pi/180
+    T_mains_avg = T_amb_ann + delta_T_offset
+    def T_mains_func(t):
+        '''
+        Función que recibe el instante del año (en horas) y retorna la temperatura estimada para el agua de la red.
+
+        Parámetros:
+            - t: Instante del año (en horas)
+
+        Retorna:
+            - Temperatura estimada para el agua de la red (en °C)
+        '''
+        return T_mains_avg + delta_T_mains*sin(2*pi*t/8760 - phi_lag - phi_amb)
+    
+    monthly_mains_temperatures = {'January': np.mean( [ T_mains_func(t) for t in range(744) ] ),
+                                  'February': np.mean( [ T_mains_func(t) for t in range(744, 1416) ] ),
+                                  'March': np.mean( [ T_mains_func(t) for t in range(1416, 2160) ] ),
+                                  'April': np.mean( [ T_mains_func(t) for t in range(2160, 2880) ] ),
+                                  'May': np.mean( [ T_mains_func(t) for t in range(2880, 3624) ] ),
+                                  'June': np.mean( [ T_mains_func(t) for t in range(3624, 4344) ] ),
+                                  'July': np.mean( [ T_mains_func(t) for t in range(4344, 5088) ] ),
+                                  'August': np.mean( [ T_mains_func(t) for t in range(5088, 5832) ] ),
+                                  'September': np.mean( [ T_mains_func(t) for t in range(5832, 6552) ] ),
+                                  'October': np.mean( [ T_mains_func(t) for t in range(6552, 7296) ] ),
+                                  'November': np.mean( [ T_mains_func(t) for t in range(7296, 8016) ] ),
+                                  'December': np.mean( [ T_mains_func(t) for t in range(8016, 8760) ] ) }
+    
+    if system_params['closed_system']:
+        if system_params['monthly_return_temperature']:
+            monthly_inlet_temperatures = {'January': system_params['temperature_january'],
+                                          'February': system_params['temperature_february'],
+                                          'March': system_params['temperature_march'],
+                                          'April': system_params['temperature_april'],
+                                          'May': system_params['temperature_may'],
+                                          'June': system_params['temperature_june'],
+                                          'July': system_params['temperature_july'],
+                                          'August': system_params['temperature_august'],
+                                          'September': system_params['temperature_september'],
+                                          'October': system_params['temperature_october'],
+                                          'November': system_params['temperature_november'],
+                                          'December': system_params['temperature_december'] }
+        else:
+            monthly_inlet_temperatures = {'January': system_params['return_inlet_temperature'],
+                                          'February': system_params['return_inlet_temperature'],
+                                          'March': system_params['return_inlet_temperature'],
+                                          'April': system_params['return_inlet_temperature'],
+                                          'May': system_params['return_inlet_temperature'],
+                                          'June': system_params['return_inlet_temperature'],
+                                          'July': system_params['return_inlet_temperature'],
+                                          'August': system_params['return_inlet_temperature'],
+                                          'September': system_params['return_inlet_temperature'],
+                                          'October': system_params['return_inlet_temperature'],
+                                          'November': system_params['return_inlet_temperature'],
+                                          'December': system_params['return_inlet_temperature'] }
+    else:
+        monthly_inlet_temperatures = monthly_mains_temperatures
+    
+    field_fluid = system_params['fluid']
+    field_pressure = 5
+    if field_fluid == 'Agua':
+        glycol_percentage = 0
+    else:
+        glycol_percentage = int(system_params['fluid'][7:9])
+    PropsField = Properties(glycol_percentage, field_pressure)
     
     work_day_list = []
     if system_params['demand_monday']:
@@ -458,517 +2219,360 @@ def simulate_system(system_params):
         work_day_list.append('Saturday')
     if system_params['demand_sunday']:
         work_day_list.append('Sunday')
-        
+    
+    monthly_demands = {'January': convert_demand(system_params['demand_january'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'February': convert_demand(system_params['demand_february'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'March': convert_demand(system_params['demand_march'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'April': convert_demand(system_params['demand_april'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'May': convert_demand(system_params['demand_may'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'June': convert_demand(system_params['demand_june'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'July': convert_demand(system_params['demand_july'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'August': convert_demand(system_params['demand_august'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'September': convert_demand(system_params['demand_september'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'October': convert_demand(system_params['demand_october'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'November': convert_demand(system_params['demand_november'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency']),
+                       'December': convert_demand(system_params['demand_december'], system_params['yearly_demand_unit'], system_params['fuel_name'], system_params['boiler_type'], system_params['boiler_efficiency'])}
+    
     t_start = time_from_string(system_params['operation_start'])
     t_end = time_from_string(system_params['operation_end'])
     
-    T_set = system_params['outlet_temperature']
-    
-    flows_dict = monthly_flows(yearly_energy_demand,
-                               monthly_demands,
-                               monthly_temperatures,
-                               work_day_list,
-                               t_start,
-                               t_end,
-                               T_set)
-    
-    climate_data_file = f'{BASE_DIR}\Simulacion\DHTMY_SAM_E_9H23YU.csv'
-    #climate_data_file = f'{BASE_DIR}\General_modules\API_ERN\tmy.csv' # Archivo climatico recuperado desde la api de ERN
-    latitude, longitude, UTC, Climate_Data = corr_exp_solar(climate_data_file)
-    DNI_corr,Diff_corr,Diff_ground_corr=Irradiance_2(latitude, longitude, UTC, Climate_Data,
-                                                     tilt = system_params['coll_tilt'],
-                                                     azimuth = system_params['coll_azimuth'])
-    Climate_Data['DNI']=DNI_corr.values
-    Climate_Data['DHI']=Diff_corr+Diff_ground_corr
-    solar_rad_profile = [ 3.6*(Climate_Data['DNI'][hour]+Climate_Data['DHI'][hour]) for hour in range(8760) ]
-    solar_rad_profile.append(solar_rad_profile[0])
-    solar_rad = interp1d(range(8761), solar_rad_profile)
-    dry_bulb_T_profile = [ Climate_Data['Tdry'][hour] for hour in range(8760) ]
-    dry_bulb_T_profile.append(dry_bulb_T_profile[0])
-    dry_bulb_T = interp1d(range(8761), dry_bulb_T_profile)
-    
-    T_max = 20
-    T_min = 15
-    mains_temp = T_mains_profile(T_max, T_min)
-    mains_temp.append(mains_temp[0])
-    T_mains_func = interp1d(range(8761),mains_temp)
-    
-    time_step = 0.1
-    
-    propsField1 = Properties_water(4)
-    propsField2 = Properties_water(3)
-    propsBoiler = Properties_water(convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units']))
-    propsSystem = Properties_water(2)
-    field_type = 'series'
-    system_params['integration_scheme_initials'] = 'SL_L_SC' # Quitar una vez se arregle el modelo de siglas_esquema
-    Solar_Field_params = {'field_1_coll_L': system_params['aperture_area'],
-                          'field_1_coll_W': 1,
-                          'field_1_coll_n0': system_params['coll_n0'],
-                          'field_1_coll_a1': system_params['coll_a1'],
-                          'field_1_coll_a2': system_params['coll_a2'],
-                          'field_1_coll_rows': system_params['coll_rows'],
-                          'field_1_colls_per_row': system_params['colls_per_row'],
-                          'field_2_coll_L': 2.859,
-                          'field_2_coll_W': 1,
-                          'field_2_coll_n0': 0.7014,
-                          'field_2_coll_a1': 1.2*3.6,
-                          'field_2_coll_a2': 0.008*3.6,
-                          'field_2_coll_rows': 3,
-                          'field_2_colls_per_row': 8,
-                          'field_1_HX_effectiveness': system_params['HX_eff'],
-                          'main_HX_effectiveness': system_params['HX_eff'],
-                          'fluid_props_1': propsField1,
-                          'fluid_props_2': propsField2,
-                          'fluid_props_load': propsSystem,
-                          'm_in_field': 2700,
-                          'm_closed_loop': convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units']),
-                          'frac_field_1': frac_field_1}
-    start = default_timer()
-    if system_params['integration_scheme_initials'] == 'PL_L_HB':
-        
-        Result = simulate_PL_L_HB(solar_rad, dry_bulb_T, flows_dict, monthly_temperatures, work_day_list, T_mains_func, field_type,
-                                  Solar_Field_params, propsSystem, t_start, t_end, time_step)
-        
-    if system_params['integration_scheme_initials'] == 'SL_L_SC':
-        
-        t_launch = 10
-        m_return = 1000
-        tolerance = 1e-6
-        max_iterations = 100
-        
-        Tank_params = {'volume': system_params['tank_volume'],
-                       'AR': system_params['tank_AR'],
-                       'top_loss_coeff': 5,
-                       'edge_loss_coeff': 5,
-                       'bottom_loss_coeff': 5,
-                       'N_nodes': 10,
-                       'inlet_1_node': 10,
-                       'outlet_1_node': 1,
-                       'inlet_2_node': 1,
-                       'outlet_2_node': 1,
-                       'fluid_props': propsSystem,
-                       'initial_temperatures': {i: 20 for i in range(1,11)  }}
-        
-        Boiler_params = {'boiler_efficiency': boiler_efficiency,
-                         'P_max': convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units']),
-                         'HX_effectiveness': system_params['HX_eff'],
-                         'cost_per_kJ': compute_cost_per_kJ(system_params['fuel_name'],
-                                                            system_params['fuel_cost'],
-                                                            system_params['fuel_cost_units'],
-                                                            system_params['boiler_type']),
-                         'm_source': m_source_boiler,
-                         'fluid_props_source': propsBoiler,
-                         'fluid_props_load': propsSystem}
-
-        Result = simulate_SL_L_SC(solar_rad, dry_bulb_T, flows_dict, monthly_temperatures, work_day_list, T_mains_func, field_type,
-                                  Solar_Field_params, Tank_params, Boiler_params, propsSystem, T_set, t_start, t_end,
-                                  m_return, time_step, t_launch, tolerance, max_iterations)
-    print('--- Simulación finalizada ---') 
-    print('Simulation time: '+str(default_timer()-start))
-    return Result
-
-def simulate_PL_L_HB(rad_func, T_amb_func, flows_dict, monthly_temperatures_dict, work_day_list, T_mains_func, field_type,
-                     Solar_Field_params, propsSystem, t_start, t_end, time_step):
-    if field_type == 'series':
-        Solar_Field = Solar_Field_series(Solar_Field_params['field_1_coll_L'], Solar_Field_params['field_1_coll_W'],
-                                         Solar_Field_params['field_1_coll_n0'], Solar_Field_params['field_1_coll_a1'],
-                                         Solar_Field_params['field_1_coll_a2'], Solar_Field_params['field_1_coll_rows'],
-                                         Solar_Field_params['field_1_colls_per_row'], Solar_Field_params['field_2_coll_L'],
-                                         Solar_Field_params['field_2_coll_W'], Solar_Field_params['field_2_coll_n0'],
-                                         Solar_Field_params['field_2_coll_a1'], Solar_Field_params['field_2_coll_a2'],
-                                         Solar_Field_params['field_2_coll_rows'], Solar_Field_params['field_2_colls_per_row'],
-                                         Solar_Field_params['field_1_HX_effectiveness'], Solar_Field_params['main_HX_effectiveness'],
-                                         Solar_Field_params['fluid_props_1'], Solar_Field_params['fluid_props_2'],
-                                         Solar_Field_params['fluid_props_load'], Solar_Field_params['m_in_field'],
-                                         Solar_Field_params['m_closed_loop'])
-    if field_type == 'parallel':
-        Solar_Field = Solar_Field_parallel(Solar_Field_params['field_1_coll_L'], Solar_Field_params['field_1_coll_W'],
-                                           Solar_Field_params['field_1_coll_n0'], Solar_Field_params['field_1_coll_a1'],
-                                           Solar_Field_params['field_1_coll_a2'], Solar_Field_params['field_1_coll_rows'],
-                                           Solar_Field_params['field_1_colls_per_row'], Solar_Field_params['field_2_coll_L'],
-                                           Solar_Field_params['field_2_coll_W'], Solar_Field_params['field_2_coll_n0'],
-                                           Solar_Field_params['field_2_coll_a1'], Solar_Field_params['field_2_coll_a2'],
-                                           Solar_Field_params['field_2_coll_rows'], Solar_Field_params['field_2_colls_per_row'],
-                                           Solar_Field_params['field_1_HX_effectiveness'], Solar_Field_params['main_HX_effectiveness'],
-                                           Solar_Field_params['fluid_props_1'], Solar_Field_params['fluid_props_2'],
-                                           Solar_Field_params['fluid_props_load'], Solar_Field_params['m_in_field'],
-                                           Solar_Field_params['m_closed_loop'], Solar_Field_params['frac_field_1'])
-    
-    Result = []
-    t = 0
-    while t < 8760:
-        
-        day_time = t%24
-        day_of_year = int(t/24) + 1
-        current_month = month_from_day(day_of_year)
-        current_week_day = week_day_from_day(day_of_year)
-        
-        rad = float(rad_func(t))
-        m_demand = flows_dict[current_month]
-        
-        if current_week_day in work_day_list and ((day_time >= t_start and day_time <= t_end) or t_start == t_end) and m_demand > 0:
-            system_on = True
-        else:
-            system_on = False
-        
-        if system_on:
-            T_amb = float(T_amb_func(t))
-            T_in = monthly_temperatures_dict[current_month]
-            T_mains = float(T_mains_func(t))
-            h_in = propsSystem.T_to_h(T_in)
-            h_mains = propsSystem.T_to_h(T_mains)
+    if latitude < 49:
+        def corrected_time(t):
+            '''
+            Función que recibe la hora del año (entre 0 y 8760) y retorna la hora considerando el cambio de hora (entre 0 y 8760).
             
-            Solar_Field_outputs = Solar_Field.compute_outputs(m_demand, h_in, h_mains, h_mains, h_mains, rad, T_amb)
+            Esta función considera que su argumento es la hora según el horario UTC-3, y en caso de encontrarse en el rango de tiempo durante el cual la hora oficial es UTC-4, resta 1 al valor recibido.
             
-            Result.append({'t': t,
-                           'rad': rad,
-                           'm_demand': m_demand,
-                           'T_out_system': propsSystem.h_to_T(Solar_Field_outputs['h_out_load']),
-                           'Q_Solar': Solar_Field_outputs['Q_useful_total'],
-                           'Field_1_Q_useful': Solar_Field_outputs['Field_1_Power'],
-                           'Field_2_Q_useful': Solar_Field_outputs['Field_2_Power'],
-                           'Field_1_Q_waste': Solar_Field_outputs['Q_waste_Field_1'],
-                           'Field_2_Q_waste': Solar_Field_outputs['Q_waste_Field_2']})
-        else:
-            T_in = monthly_temperatures_dict[current_month]
-            Result.append({'t': t,
-                           'rad': rad,
-                           'm_demand': m_demand,
-                           'T_out_system': T_in,
-                           'Q_Solar': 0,
-                           'Field_1_Q_useful': 0,
-                           'Field_2_Q_useful': 0,
-                           'Field_1_Q_waste': 0,
-                           'Field_2_Q_waste': 0})
-        t = t + time_step
-        t = round(t, 3)
+            En caso de que la simulación se realice en la región de Magallanes (el criterio para estar en la región de Magallanes es que la latitud sea más al sur que -49°), la función SIEMPRE retorna el mismo valor recibido como argumento.
+            
+            Se considera que los cambios de hora se realizan los días 7 de abril y 8 de septiembre a las 24:00 horas.
     
-    Result2 = {}
-    for key in Result[0]:
-        Result2[key] = [ Result[i][key] for i in range(len(Result)) ]
-    return Result2
-
-def simulate_SL_L_SC(rad_func, T_amb_func, flows_dict, monthly_temperatures_dict, work_day_list, T_mains_func, field_type,
-                     Solar_Field_params, Tank_params, Boiler_params,
-                     propsSystem, T_set_Boiler, t_start, t_end, m_return, time_step, t_launch,
-                     tolerance, max_iterations):
+            Prámetros:
+                - t: Hora del año de acuerdo al horario UTC-3
     
-    if field_type == 'series':
-        Solar_Field = Solar_Field_series(Solar_Field_params['field_1_coll_L'], Solar_Field_params['field_1_coll_W'],
-                                         Solar_Field_params['field_1_coll_n0'], Solar_Field_params['field_1_coll_a1'],
-                                         Solar_Field_params['field_1_coll_a2'], Solar_Field_params['field_1_coll_rows'],
-                                         Solar_Field_params['field_1_colls_per_row'], Solar_Field_params['field_2_coll_L'],
-                                         Solar_Field_params['field_2_coll_W'], Solar_Field_params['field_2_coll_n0'],
-                                         Solar_Field_params['field_2_coll_a1'], Solar_Field_params['field_2_coll_a2'],
-                                         Solar_Field_params['field_2_coll_rows'], Solar_Field_params['field_2_colls_per_row'],
-                                         Solar_Field_params['field_1_HX_effectiveness'], Solar_Field_params['main_HX_effectiveness'],
-                                         Solar_Field_params['fluid_props_1'], Solar_Field_params['fluid_props_2'],
-                                         Solar_Field_params['fluid_props_load'], Solar_Field_params['m_in_field'],
-                                         Solar_Field_params['m_closed_loop'])
-    if field_type == 'parallel':
-        Solar_Field = Solar_Field_parallel(Solar_Field_params['field_1_coll_L'], Solar_Field_params['field_1_coll_W'],
-                                           Solar_Field_params['field_1_coll_n0'], Solar_Field_params['field_1_coll_a1'],
-                                           Solar_Field_params['field_1_coll_a2'], Solar_Field_params['field_1_coll_rows'],
-                                           Solar_Field_params['field_1_colls_per_row'], Solar_Field_params['field_2_coll_L'],
-                                           Solar_Field_params['field_2_coll_W'], Solar_Field_params['field_2_coll_n0'],
-                                           Solar_Field_params['field_2_coll_a1'], Solar_Field_params['field_2_coll_a2'],
-                                           Solar_Field_params['field_2_coll_rows'], Solar_Field_params['field_2_colls_per_row'],
-                                           Solar_Field_params['field_1_HX_effectiveness'], Solar_Field_params['main_HX_effectiveness'],
-                                           Solar_Field_params['fluid_props_1'], Solar_Field_params['fluid_props_2'],
-                                           Solar_Field_params['fluid_props_load'], Solar_Field_params['m_in_field'],
-                                           Solar_Field_params['m_closed_loop'], Solar_Field_params['frac_field_1'])
+            Retorna:
+                - Hora del año de acuerdo al horario UTC-3 o UTC-4, según corresponda.
+            '''
+            if t >= 24*97 and t - 1 < 24*251:
+                return t - 1
+            else:
+                return t
+    else:
+        def corrected_time(t):
+            '''
+            Función que recibe la hora del año (entre 0 y 8760) y retorna la hora considerando el cambio de hora (entre 0 y 8760).
+            
+            Esta función considera que su argumento es la hora según el horario UTC-3, y en caso de encontrarse en el rango de tiempo durante el cual la hora oficial es UTC-4, resta 1 al valor recibido.
+            
+            En caso de que la simulación se realice en la región de Magallanes (el criterio para estar en la región de Magallanes es que la latitud sea más al sur que -49°), la función SIEMPRE retorna el mismo valor recibido como argumento.
+            
+            Se considera que los cambios de hora se realizan los días 7 de abril y 8 de septiembre a las 24:00 horas.
     
-    Tank = Storage_Tank(Tank_params['volume'], Tank_params['AR'],
-                        Tank_params['top_loss_coeff'], Tank_params['edge_loss_coeff'],
-                        Tank_params['bottom_loss_coeff'], Tank_params['N_nodes'],
-                        Tank_params['inlet_1_node'], Tank_params['outlet_1_node'],
-                        Tank_params['inlet_2_node'], Tank_params['outlet_2_node'],
-                        Tank_params['fluid_props'], Tank_params['initial_temperatures'])
+            Prámetros:
+                - t: Hora del año de acuerdo al horario UTC-3
     
-    Boiler = Boiler_HX(Boiler_params['boiler_efficiency'], Boiler_params['P_max'],
-                       Boiler_params['HX_effectiveness'], Boiler_params['cost_per_kJ'],
-                       Boiler_params['m_source'], Boiler_params['fluid_props_source'],
-                       Boiler_params['fluid_props_load'])
+            Retorna:
+                - Hora del año de acuerdo al horario UTC-3 o UTC-4, según corresponda.
+            '''
+            return t
     
-    t = 8760 - t_launch*24
-    while t < 8760:
-        
-        day_time = t%24
-        day_of_year = int(t/24) + 1
-        current_month = month_from_day(day_of_year)
-        current_week_day = week_day_from_day(day_of_year)
-        
-        rad = float(rad_func(t))
-        m_demand = flows_dict[current_month]
-        
-        if current_week_day in work_day_list and ((day_time >= t_start and day_time <= t_end) or t_start == t_end) and m_demand > 0:
-            system_on = True
-        else:
-            system_on = False
-        
-        if system_on:
-            T_amb = float(T_amb_func(t))
-            T_in = monthly_temperatures_dict[current_month]
-            T_mains = float(T_mains_func(t))
-            h_in = propsSystem.T_to_h(T_in)
-            h_mains = propsSystem.T_to_h(T_mains)
-            Solar_Field_outputs = Solar_Field.compute_outputs(m_demand, h_in,
-                                                              h_mains, h_mains,
-                                                              h_mains, rad, T_amb)
-            Tank_outputs = Tank.compute_outputs(m_demand, Solar_Field_outputs['h_out_load'],
-                                                m_return, propsSystem.T_to_h(T_set_Boiler),
-                                                T_amb, time_step)
-            
-            Boiler_h_in = (m_demand*Tank_outputs['outlet_1_h'] + m_return*Tank_outputs['outlet_2_h'])/(m_demand + m_return)
-            
-            Boiler_outputs = Boiler.compute_outputs(m_demand + m_return, Boiler_h_in, T_set_Boiler, h_mains, time_step)
-            
-            if Boiler_outputs['source_sat'] or Boiler_outputs['excess_temp'] or Boiler_outputs['P_max_reached']:
-                h_in_Tank_return = Boiler_outputs['h_out']
-                it = 0
-                while True:
-                    Tank_outputs = Tank.compute_outputs(m_demand, Solar_Field_outputs['h_out_load'],
-                                                        m_return, h_in_Tank_return,
-                                                        T_amb, time_step)
-                    
-                    Boiler_h_in = (m_demand*Tank_outputs['outlet_1_h'] + m_return*Tank_outputs['outlet_2_h'])/(m_demand + m_return)
-                    
-                    Boiler_outputs = Boiler.compute_outputs(m_demand + m_return, Boiler_h_in, T_set_Boiler, h_mains, time_step)
-                    
-                    it = it + 1
-                    
-                    if abs(Boiler_outputs['h_out'] - h_in_Tank_return)/h_in_Tank_return < tolerance:
-                        maxIt = False
-                        break
-                    if it == max_iterations:
-                        maxIt = True
-                        break
-                    h_in_Tank_return = Boiler_outputs['h_out']
-        else:
-            T_in = monthly_temperatures_dict[current_month]
-            h_in = propsSystem.T_to_h(T_in)
-            T_amb = float(T_amb_func(t))
-            Tank_outputs = Tank.compute_outputs(0, h_in,
-                                                0, h_in,
-                                                T_amb, time_step)
-        Tank.update_temperature()
-        t = t + time_step
-        t = round(t, 3)
-
-    Result = []
-    t = 0
-    while t < 8760:
-        
-        day_time = t%24
-        day_of_year = int(t/24) + 1
-        current_month = month_from_day(day_of_year)
-        current_week_day = week_day_from_day(day_of_year)
-        
-        rad = float(rad_func(t))
-        m_demand = flows_dict[current_month]
-        
-        if current_week_day in work_day_list and ((day_time >= t_start and day_time <= t_end) or t_start == t_end) and m_demand > 0:
-            system_on = True
-        else:
-            system_on = False
-        
-        if system_on:
-            T_amb = float(T_amb_func(t))
-            T_in = monthly_temperatures_dict[current_month]
-            T_mains = float(T_mains_func(t))
-            h_in = propsSystem.T_to_h(T_in)
-            h_mains = propsSystem.T_to_h(T_mains)
-            Solar_Field_outputs = Solar_Field.compute_outputs(m_demand, h_in,
-                                                              h_mains, h_mains,
-                                                              h_mains, rad, T_amb)
-            Tank_outputs = Tank.compute_outputs(m_demand, Solar_Field_outputs['h_out_load'],
-                                                m_return, propsSystem.T_to_h(T_set_Boiler),
-                                                T_amb, time_step)
-            
-            Boiler_h_in = (m_demand*Tank_outputs['outlet_1_h'] + m_return*Tank_outputs['outlet_2_h'])/(m_demand + m_return)
-            
-            Boiler_outputs = Boiler.compute_outputs(m_demand + m_return, Boiler_h_in, T_set_Boiler, h_mains, time_step)
-            
-            if Boiler_outputs['source_sat'] or Boiler_outputs['excess_temp'] or Boiler_outputs['P_max_reached']:
-                h_in_Tank_return = Boiler_outputs['h_out']
-                it = 0
-                while True:
-                    Tank_outputs = Tank.compute_outputs(m_demand, Solar_Field_outputs['h_out_load'],
-                                                        m_return, h_in_Tank_return,
-                                                        T_amb, time_step)
-                    
-                    Boiler_h_in = (m_demand*Tank_outputs['outlet_1_h'] + m_return*Tank_outputs['outlet_2_h'])/(m_demand + m_return)
-                    
-                    Boiler_outputs = Boiler.compute_outputs(m_demand + m_return, Boiler_h_in, T_set_Boiler, h_mains, time_step)
-                    
-                    it = it + 1
-                    
-                    if abs(Boiler_outputs['h_out'] - h_in_Tank_return)/h_in_Tank_return < tolerance:
-                        maxIt = False
-                        break
-                    if it == max_iterations:
-                        maxIt = True
-                        break
-                    h_in_Tank_return = Boiler_outputs['h_out']
-            Result.append({'t': t,
-                           'rad': rad,
-                           'm_demand': m_demand,
-                           'T_out_system': propsSystem.h_to_T(Boiler_outputs['h_out']),
-                           'T_out_Solar_Field': propsSystem.h_to_T(Solar_Field_outputs['h_out_load']),
-                           'T_out_Tank': propsSystem.h_to_T(Tank_outputs['outlet_1_h']),
-                           'Q_Solar': Solar_Field_outputs['Q_useful_total'],
-                           'Q_Boiler': Boiler_outputs['Q_delivered'],
-                           'Time_step_fuel_cost': Boiler_outputs['cost_time_step'],
-                           'Field_1_Q_useful': Solar_Field_outputs['Field_1_Power'],
-                           'Field_2_Q_useful': Solar_Field_outputs['Field_2_Power'],
-                           'Field_1_Q_waste': Solar_Field_outputs['Q_waste_Field_1'],
-                           'Field_2_Q_waste': Solar_Field_outputs['Q_waste_Field_2']})
-        else:
-            T_in = monthly_temperatures_dict[current_month]
-            h_in = propsSystem.T_to_h(T_in)
-            T_amb = float(T_amb_func(t))
-            Tank_outputs = Tank.compute_outputs(0, h_in,
-                                                0, h_in,
-                                                T_amb, time_step)
-            Result.append({'t': t,
-                           'rad': rad,
-                           'm_demand': m_demand,
-                           'T_out_system': propsSystem.h_to_T(Tank_outputs['outlet_1_h']),
-                           'T_out_Solar_Field': None,
-                           'T_out_Tank': propsSystem.h_to_T(Tank_outputs['outlet_1_h']),
-                           'Q_Solar': 0,
-                           'Q_Boiler': 0,
-                           'Time_step_fuel_cost': 0,
-                           'Field_1_Q_useful': 0,
-                           'Field_2_Q_useful': 0,
-                           'Field_1_Q_waste': 0,
-                           'Field_2_Q_waste': 0})
-        Tank.update_temperature()
-        t = t + time_step
-        t = round(t, 3)
+    cost_per_kJ = compute_cost_per_kJ(system_params['fuel_name'], system_params['fuel_cost'], system_params['fuel_cost_units'], system_params['boiler_type'])
     
-    Result2 = {}
-    for key in Result[0]:
-        Result2[key] = [ Result[i][key] for i in range(len(Result)) ]
-    return Result2
+    if system_params['integration_scheme_name'] in ['NP_IE_ACS', 'NS_L_SI'] or system_params['integration_scheme_initials'] in ['NP_IE_ACS', 'NS_L_SI']:
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsField)
+        
+        heated_fluid_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        
+        HX = Heat_Exchanger(system_params['HX_eff'], PropsField, PropsHeatedFluid)
+        
+        Boiler_type = system_params['boiler_type']
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+            
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        mass_flow_field = convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units'], glycol_percentage)
+        
+        Result = NP_IE_ACS__NS_L_SI(Field, HX, T_set, Boiler_type, boiler_nominal_power, boiler_efficiency,
+                                    cost_per_kJ, work_day_list, monthly_flows, monthly_inlet_temperatures,
+                                    monthly_mains_temperatures, t_start, t_end, PropsField, PropsHeatedFluid, mass_flow_field,
+                                    sky_diff_func, ground_diff_func, DNI_func, T_amb_func, compute_zenith, compute_azimuth,
+                                    corrected_time, time_step, tolerance, max_iterations)
+        
+    elif system_params['integration_scheme_name'] == 'NS_L_PI' or system_params['integration_scheme_initials'] == 'NS_L_PI':
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsField)
+        
+        heated_fluid_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        
+        HX = Heat_Exchanger(system_params['HX_eff'], PropsField, PropsHeatedFluid)
+        
+        Boiler_type = system_params['boiler_type']
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+            
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        mass_flow_field = convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units'], glycol_percentage)
+        
+        Result = NS_L_PI(Field, HX, T_set, Boiler_type, boiler_nominal_power, boiler_efficiency,
+                          cost_per_kJ, work_day_list, monthly_flows, monthly_inlet_temperatures,
+                          monthly_mains_temperatures, t_start, t_end, PropsHeatedFluid, PropsField, mass_flow_field,
+                          sky_diff_func, ground_diff_func, DNI_func, T_amb_func, compute_zenith, compute_azimuth,
+                          corrected_time, time_step, tolerance, max_iterations)
+        
+    elif system_params['integration_scheme_name'] == 'SAM' or system_params['integration_scheme_initials'] == 'SAM':
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsField)
+        
+        heated_fluid_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        
+        HX = Heat_Exchanger(system_params['HX_eff'], PropsField, PropsHeatedFluid)
+        
+        tank_volume = system_params['tank_volume']
+        tank_AR = system_params['tank_AR']
+        top_loss_coeff = 3.5
+        edge_loss_coeff = 3.5
+        bottom_loss_coeff = 3.5
+        tank_nodes = 10
+        inlet_1_node = 1
+        outlet_1_node = 10
+        inlet_2_node = 10
+        outlet_2_node = 1
+        tank_initial_temperatures = { i: 20 for i in range(1,11) }
+        Tank = Storage_Tank(tank_volume, tank_AR, top_loss_coeff, edge_loss_coeff, bottom_loss_coeff,
+                            tank_nodes, inlet_1_node, outlet_1_node, inlet_2_node, outlet_2_node,
+                            None, None, None, None, None, None,
+                            PropsHeatedFluid, None, None, tank_initial_temperatures)
+        
+        Boiler_type = system_params['boiler_type']
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+            
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        mass_flow_field = convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units'], glycol_percentage)
+        
+        Result = Solar_HX_Tank(Field, HX, Tank, T_set, Boiler_type, boiler_nominal_power, boiler_efficiency,
+                                cost_per_kJ, work_day_list, monthly_flows, monthly_inlet_temperatures,
+                                monthly_mains_temperatures, t_start, t_end, PropsField, PropsHeatedFluid, mass_flow_field,
+                                sky_diff_func, ground_diff_func, DNI_func, T_amb_func, compute_zenith, compute_azimuth,
+                                corrected_time, time_step, tolerance, max_iterations)
+        
+    elif system_params['integration_scheme_name'] == 'NS_L_PD' or system_params['integration_scheme_initials'] == 'NS_L_PD':
+        
+        heated_fluid_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsHeatedFluid)
+        
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+        
+        Result = NS_L_PD(Field, T_set, boiler_nominal_power, boiler_efficiency,
+                          cost_per_kJ, work_day_list, monthly_flows, monthly_inlet_temperatures,
+                          monthly_mains_temperatures, t_start, t_end, PropsHeatedFluid,
+                          sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+                          compute_zenith, compute_azimuth, corrected_time,
+                          time_step, tolerance, max_iterations)
+        
+    elif system_params['integration_scheme_name'] == 'NS_L_CA_MU' or system_params['integration_scheme_initials'] == 'NS_L_CA_MU':
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsField)
+        
+        heated_fluid_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        
+        HX = Heat_Exchanger(system_params['HX_eff'], PropsField, PropsHeatedFluid)
+        
+        tank_volume = system_params['tank_volume']
+        tank_AR = system_params['tank_AR']
+        top_loss_coeff = 3.5
+        edge_loss_coeff = 3.5
+        bottom_loss_coeff = 3.5
+        tank_nodes = 10
+        inlet_1_node = 10
+        outlet_1_node = 1
+        inlet_2_node = 10
+        outlet_2_node = 1
+        tank_initial_temperatures = { i: 20 for i in range(1,11) }
+        Tank = Storage_Tank(tank_volume, tank_AR, top_loss_coeff, edge_loss_coeff, bottom_loss_coeff,
+                            tank_nodes, inlet_1_node, outlet_1_node, inlet_2_node, outlet_2_node,
+                            None, None, None, None, None, None,
+                            PropsHeatedFluid, None, None, tank_initial_temperatures)
+        
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+            
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        mass_flow_field = convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units'], glycol_percentage)
+        
+        Result = NS_L_CA_MU(Field, Tank, HX, T_set, boiler_nominal_power, boiler_efficiency,
+                            cost_per_kJ, work_day_list, monthly_flows,
+                            monthly_inlet_temperatures, monthly_mains_temperatures, t_start, t_end,
+                            PropsHeatedFluid, PropsField, mass_flow_field,
+                            sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+                            compute_zenith, compute_azimuth, corrected_time,
+                            time_step, tolerance, max_iterations)
+        
+    elif system_params['integration_scheme_name'] == 'NS_L_CA_1' or system_params['integration_scheme_initials'] == 'NS_L_CA_1':
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsField)
+        
+        boiler_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        heated_fluid_pressure = max([ field_pressure, boiler_pressure ])
+        PropsBoiler = Properties(0, boiler_pressure)
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        HX1_props = PropsField
+        HX2_props = PropsBoiler
+        
+        HX_eff = system_params['HX_eff']
+        
+        tank_volume = system_params['tank_volume']
+        tank_AR = system_params['tank_AR']
+        top_loss_coeff = 3.5
+        edge_loss_coeff = 3.5
+        bottom_loss_coeff = 3.5
+        tank_nodes = 10
+        inlet_2_node = 10
+        outlet_2_node = 1
+        tank_initial_temperatures = { i: 20 for i in range(1,11) }
+        Tank = Storage_Tank(tank_volume, tank_AR, top_loss_coeff, edge_loss_coeff, bottom_loss_coeff,
+                            tank_nodes, None, None, inlet_2_node, outlet_2_node,
+                            HX_eff, HX_eff, 7, 9, 2, 4,
+                            PropsHeatedFluid, HX1_props, HX2_props, tank_initial_temperatures)
 
-system_params = {'sector': 'industrial',
-                 'sim_name': 'Simulación de prueba',
-                  'application': 'Ninguna',
-                  'processes': 'Todos',
-                  'location': 'Santiago',
-                  'latitude': 235217,
-                  'longitude': 245221,
-                  'fuel_name': 'Diesel',
-                  'yearly_demand': 20,
-                  'yearly_demand_unit': 'm3',
-                  'demand_monday': True,
-                  'demand_tuesday': True,
-                  'demand_wednesday': True,
-                  'demand_thursday': True,
-                  'demand_friday': True,
-                  'demand_saturday': False,
-                  'demand_sunday': False,
-                  'operation_start': '7:30',
-                  'operation_end': '19:30',
-                  'demand_january': 10,
-                  'demand_february': 12,
-                  'demand_march': 13,
-                  'demand_april': 13,
-                  'demand_may': 15,
-                  'demand_june': 16,
-                  'demand_july': 16,
-                  'demand_august': 16,
-                  'demand_september': 14,
-                  'demand_october': 12,
-                  'demand_november': 10,
-                  'demand_december': 10,
-                  'boiler_nominal_power': 200,
-                  'boiler_nominal_power_units': 'kW',
-                  'boiler_pressure': 6,
-                  'boiler_pressure_units': 'bar',
-                  'boiler_type': 'Condensación',
-                  'mains_inlet_temperature': None,
-                  'return_inlet_temperature': None,
-                  'temperature_january': 25,
-                  'temperature_february': 25,
-                  'temperature_march': 22,
-                  'temperature_april': 19,
-                  'temperature_may': 15,
-                  'temperature_june': 15,
-                  'temperature_july': 15,
-                  'temperature_august': 15,
-                  'temperature_september': 18,
-                  'temperature_october': 22,
-                  'temperature_november': 22,
-                  'temperature_december': 25,
-                  'outlet_temperature': 60,
-                  'integration_scheme_name': 'SL_L_SC',
-                  'integration_scheme_initials': 'SL_L_SC',
-                  'aperture_area': 1.92,
-                  'coll_n0': 0.756,
-                  'coll_price': 1000,
-                  'coll_a2': 0.0138*3.6,
-                  'coll_a1': 4.052*3.6,
-                  'coll_iam': None,
-                  'coll_test_flow': None,
-                  'coll_rows': 3,
-                  'colls_per_row': 9,
-                  'coll_tilt': 35,
-                  'coll_azimuth': 354,
-                  'field_mass_flow': 2700,
-                  'field_mass_flow_units': 'kg/h',
-                  'fluid': 'water',
-                  'tank_volume': 1,
-                  'tank_AR': 2.7,
-                  'tank_material': 'Steel',
-                  'tank_insulation_material': 'Plumavit',
-                  'HX_eff': 0.8,
-                  'fuel_cost': 1.3,
-                  'fuel_cost_units': '$/l',
-                  'coll_type': 'Evacuated Tube'}
-
-
-#Result = simulate_system(system_params)
-
-#plt.figure()
-#plt.plot(Result['t'], Result['T_out_system'])
-#plt.show()
-
-
-#Heat_Map_bokeh(Result, 'T_out_system')
-
-# np.savez('Result2.npz', **Result)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+            
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        mass_flow_field = convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units'], glycol_percentage)
+        
+        Result = NS_L_CA_1(Field, Tank, T_set, boiler_nominal_power, boiler_efficiency,
+                            cost_per_kJ, work_day_list, monthly_flows,
+                            monthly_inlet_temperatures, monthly_mains_temperatures, t_start, t_end,
+                            PropsHeatedFluid, PropsField, PropsBoiler, mass_flow_field,
+                            sky_diff_func, ground_diff_func, DNI_func, T_amb_func, compute_zenith, compute_azimuth, corrected_time, time_step, tolerance, max_iterations)
+        
+    elif system_params['integration_scheme_name'] == 'NS_L_CA_2' or system_params['integration_scheme_initials'] == 'NS_L_CA_2':
+        
+        test_fluid_props = Properties(0,3)
+        Field = Solar_Field(system_params['aperture_area'], system_params['coll_n0'],
+                            system_params['coll_a1'], system_params['coll_a2'],
+                            system_params['coll_iam'], system_params['coll_test_flow']*3600,
+                            test_fluid_props, system_params['coll_tilt'], system_params['coll_azimuth'],
+                            system_params['coll_rows'], system_params['colls_per_row'], PropsField)
+        
+        boiler_pressure = convert_pressure(system_params['boiler_pressure'], system_params['boiler_pressure_units'])
+        heated_fluid_pressure = max([ field_pressure, boiler_pressure ])
+        PropsBoiler = Properties(0, boiler_pressure)
+        PropsHeatedFluid = Properties(0, heated_fluid_pressure)
+        
+        HX_eff = system_params['HX_eff']
+        HX = Heat_Exchanger(HX_eff, PropsField, PropsHeatedFluid)
+        
+        tank_volume = system_params['tank_volume']
+        tank_AR = system_params['tank_AR']
+        top_loss_coeff = 3.5
+        edge_loss_coeff = 3.5
+        bottom_loss_coeff = 3.5
+        tank_nodes = 10
+        inlet_1_node = 7
+        outlet_1_node = 10
+        inlet_2_node = 10
+        outlet_2_node = 1
+        tank_initial_temperatures = { i: 20 for i in range(1,11) }
+        Tank = Storage_Tank(tank_volume, tank_AR, top_loss_coeff, edge_loss_coeff, bottom_loss_coeff,
+                            tank_nodes, inlet_1_node, outlet_1_node, inlet_2_node, outlet_2_node,
+                            None, HX_eff, None, None, 2, 4,
+                            PropsHeatedFluid, None, PropsBoiler, tank_initial_temperatures)
+        
+        boiler_nominal_power = convert_power(system_params['boiler_nominal_power'], system_params['boiler_nominal_power_units'])
+        boiler_efficiency = system_params['boiler_efficiency']
+            
+        monthly_flows = compute_monthly_flows(monthly_demands, monthly_inlet_temperatures, work_day_list, t_start, t_end, system_params['outlet_temperature'], PropsHeatedFluid)
+        
+        T_set = system_params['outlet_temperature']
+        
+        mass_flow_field = convert_flow(system_params['field_mass_flow'], system_params['field_mass_flow_units'], glycol_percentage)
+        
+        Result = NS_L_CA_2(Field, Tank, HX, T_set, boiler_nominal_power, boiler_efficiency,
+                           cost_per_kJ, work_day_list, monthly_flows, monthly_inlet_temperatures,
+                           monthly_mains_temperatures, t_start, t_end, PropsHeatedFluid, PropsField, PropsBoiler,
+                           mass_flow_field, sky_diff_func, ground_diff_func, DNI_func, T_amb_func,
+                           compute_zenith, compute_azimuth, corrected_time,
+                           time_step, tolerance, max_iterations)
+    
+    return {'Result': Result,
+            'integration_scheme_name': system_params['integration_scheme_name'],
+            'integration_scheme_initials': system_params['integration_scheme_initials'],
+            'cost_per_kJ': cost_per_kJ,
+            'work_day_list': work_day_list,
+            'monthly_demands': monthly_demands,
+            'monthly_mains_temperatures': monthly_mains_temperatures,
+            'monthly_flows': monthly_flows,
+            'closed_system': system_params['closed_system'],
+            'boiler_efficiency': system_params['boiler_efficiency'],
+            'time_step': time_step,
+            'coll_area': system_params['aperture_area'],
+            'coll_price': system_params['coll_price'],
+            'coll_rows': system_params['coll_rows'],
+            'colls_per_row': system_params['colls_per_row'],
+            'Tank_volume': system_params['tank_volume'],
+            'Tank_cost_per_m3': system_params['tank_cost'],
+            'BoP_cost_per_m2': system_params['BOP'],
+            'installation_cost': system_params['installation_cost'],
+            'operation_and_maintanence': system_params['operation_cost'],
+            'tax_rate': system_params['tax_rate'],
+            'discount_factor': system_params['discount_factor']}

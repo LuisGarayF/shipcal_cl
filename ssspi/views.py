@@ -11,6 +11,7 @@ from Simulacion.Run_Simulation import simulate_system
 import json
 from django.contrib.auth.views import LogoutView
 from django.urls import reverse_lazy
+from django.core.serializers.json import DjangoJSONEncoder
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -114,17 +115,6 @@ def contacto(request):
 
 # Formulario Simulaciones
 
-# Actualizar aplicaciones 
-
-def update_aplicacion(request): 
-    sector_id = request.GET.get('sector_id') 
-    aplicaciones = Aplicacion.objects.filter(sector_id=sector_id)
-    aplicacion_list = []
-    for aplicacion in aplicaciones:
-        aplicacion_list.append({'id': aplicacion.id, 'name': aplicacion.aplicacion})
-    print(aplicacion_list)
-    
-    return JsonResponse(aplicacion_list, safe=False)
 
 # Cargar mapas
 # 
@@ -153,9 +143,7 @@ def simulacion(request):
         form = SimForm(request.POST, request.FILES)
         if form.is_valid():
             nombre_simulacion = form.cleaned_data['nombre_simulacion']
-            form.aplicacion_choices()
             sector = form.cleaned_data['sector']
-            aplicacion = form.cleaned_data['aplicacion']
             nombre_ubicacion = form.cleaned_data['nombre_ubicacion']
             # Obtener la ubicación seleccionada
             ubicacion = get_object_or_404(Ubicacion, nombre_ubicacion=nombre_ubicacion)
@@ -166,19 +154,21 @@ def simulacion(request):
                 ubicacion.longitud_personalizada = form.cleaned_data['longitud']
                 ubicacion.save()
 
-                # Se obtienen las coordenadas de la ubicación (ya sea predeterminada o personalizada)
-                latitud = ubicacion.latitud_personalizada or ubicacion.latitud
-                longitud = ubicacion.longitud_personalizada or ubicacion.longitud
-
-                # Se devuelve la respuesta en formato JSON
-                response_data = {
-                    'result': True,
-                    'latitud': str(latitud),
-                    'longitud': str(longitud),
+                # Crear un diccionario con los campos relevantes de la ubicación
+                ubicacion_data = {
+                    'latitud': str(ubicacion.latitud),
+                    'longitud': str(ubicacion.longitud),
                 }
-                return JsonResponse(response_data)
+                #return json.dumps(ubicacion_data)
+                
+
+                # Agregar los atributos adicionales al diccionario
+                ubicacion_data['result'] = True
+            raw_results['ubicacion'] = ubicacion_data
+    
 
             esquema = form.cleaned_data['esquema']
+            siglas_esquema = form.cleaned_data['siglas_esquema']
             combustible = form.cleaned_data['combustible']
             demanda_anual = form.cleaned_data['demanda_anual']
             unidad_demanda = form.cleaned_data['unidad_demanda']
@@ -250,9 +240,8 @@ def simulacion(request):
             
             
             
-
-            raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,'shema': esquema,
-                           'latitude': latitud, 'longitude': longitud, 'fuel_name': combustible, 'operation_start': ini_jornada, 'operation_end': term_jornada, 'yearly_demand': demanda_anual, 'yearly_demand_unit': unidad_demanda,
+            raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,'shema': esquema, 'integration_scheme_initials': siglas_esquema,'sector':sector,
+                           'latitude': ubicacion_data['latitud'], 'longitude': ubicacion_data['longitud'], 'fuel_name': combustible, 'operation_start': ini_jornada, 'operation_end': term_jornada, 'yearly_demand': demanda_anual, 'yearly_demand_unit': unidad_demanda,
                            'demand_monday': demanda_lun, 'demand_tuesday': demanda_mar, 'demand_wednesday': demanda_mie,
                            'demand_thursday': demanda_jue, 'demand_friday': demanda_vie, 'demand_saturday': demanda_sab, 'demand_sunday':  demanda_dom, 'demand_january': demanda_enero,
                            'demand_february': demanda_febrero, 'demand_march': demanda_marzo, 'demand_april': demanda_abril, 'demand_may': demanda_mayo, 'demand_june': demanda_junio,
@@ -266,22 +255,21 @@ def simulacion(request):
                            'coll_n0': eficiencia_optica, 'coll_a2': coef_per_lineales, 'coll_a1': coef_per_cuadraticas, 'coll_price': precio_colector,  'coll_rows': cantidad_bat,
                            'total_collectors': total_colectores,  'colls_per_row': col_bat, 'field_land_area': sup_colectores, 'coll_tilt': inclinacion_col, 'coll_azimuth': azimut,
                            'field_mass_flow': flujo_masico, 'field_mass_flow_units': unidad_flujo_masico, 'fluid': tipo_fluido, 'field_mass_flow_range': rango_flujo_prueba,
-                           'iam': iam, 'tank_volume': volumen, 'tank_AR': relacion_aspecto, 'tank_material': material_almacenamiento, 'tank_isulation_material': material_aislamiento,
+                           'iam': iam,'longitudinal_iam': iam_longitudinal ,'tank_volume': volumen, 'tank_AR': relacion_aspecto, 'tank_material': material_almacenamiento, 'tank_isulation_material': material_aislamiento,
                            'HX_eff': efectividad, 'fuel_cost': costo_combustible, 'fuel_cost_units': unidad_costo_combustible, 'boiler_efficiency': eficiencia_caldera}
+
+
+            raw_results_json = json.dumps(raw_results, cls=DjangoJSONEncoder)
             
-
-            sim_form_instance = SimForm(nombre_simulacion=nombre_simulacion, sector=sector, aplicacion=aplicacion)
-            print(raw_results)
-            sim_form_instance.save()
-
-            results = simulate_system(raw_results)
-            results_json = json.dumps(results)
-
             # Crea y guarda una instancia de Simulaciones asociada al usuario autenticado
-            simulacion = Simulaciones(id_user=request.user, resultado=results_json)
+            simulacion = Simulaciones(id_user=request.user, resultado= raw_results_json)
             simulacion.save()
+            messages.success(request, f'La simulación {nombre_simulacion} ha sido creada correctamente')
 
-            return render(request, 'results.html', {'results': results_json})
+            # Llama a la función simulate_system con los datos
+            Result = simulate_system( raw_results_json)
+
+            return render(request, 'results.html', {})
         else:
             form = SimForm(request.POST)
     else:
@@ -291,7 +279,9 @@ def simulacion(request):
 
 
 # def resultados(request,Result):
-def resultados(request):
+def results(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
 
     # plt.figure()
     # plt.plot(Result['t'], Result['T_out_system'])

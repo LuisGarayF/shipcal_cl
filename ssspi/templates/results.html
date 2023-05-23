@@ -21,6 +21,8 @@
                 <hr>
                 <br>
             </div>
+            {{results}}
+            {{Result}}
             <div class="col s6 py-5">
                 <div class="row pt-6">
                     <div class="col s2">
@@ -330,8 +332,19 @@
         </div>
     </div>
     <div class="row">
-        <a type="button" class="btn waves-effect waves" href="{% url 'pdf_view'%}">Descargar PDF</a>
-        <button type="button" class="btn waves-effect waves">Volver al Dashboard</button>
+        <a type="button" class="btn waves-effect waves" onclick="downloadResume()">Descargar PDF</a>
+        <button type="button" class="btn waves-effect waves" href="{%  url 'dashboard' %}">Volver al Dashboard</button>
+    </div>
+    <!-- Modal -->
+    <div id="pdfModal" class="modal">
+        <div class="modal-content">
+            <img src="{% static 'img/logotipo/logotipo.png' %}" alt="logotipo-gruposolaruc" class="img-responsive w-20">
+            <h4>Generando PDF</h4>
+            <p>El tiempo estimado es aproximadamente de 2 minutos.Por favor espere...</p>
+        </div>
     </div>     
 </div>
+<script src="{% static 'js/form.js' %}" async></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.3.3/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.min.js"></script>
 {% endblock %}

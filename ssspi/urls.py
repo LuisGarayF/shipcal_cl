@@ -17,10 +17,7 @@ urlpatterns = [
     path('contacto/',contacto, name='contacto'),
     path('dashboard/',dashboardView, name='dashboard'),
     path('update_profile/', update_profile, name='update_profile'),
-    path('update_aplicacion/', update_aplicacion, name='update_aplicacion'),
-    path('update_profile/', update_profile, name='update_profile'),
-    path('resultados/', resultados, name='resultados'),
-    #path('pdf/',views.html_to_pdf, name='pdf_view'),
+    path('results/', results, name='results'),
     #path('apiern/', views.apiern, name='apiern'),
 ]
 

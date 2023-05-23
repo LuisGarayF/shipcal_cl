@@ -278,7 +278,6 @@ document.querySelector('.final-step').addEventListener('click', updateSummary);
 function updateSummary() {
     const nombreSimulacion = document.querySelector('#id_nombre_simulacion').value;
     const sector = document.querySelector('#id_sector option:checked').textContent;
-    const aplicacion = document.querySelector('#id_aplicacion option:checked').textContent;
     const ubicacion = document.querySelector('#id_nombre_ubicacion option:checked').textContent;
     const latitud = document.querySelector('#id_latitud').value;
     const longitud = document.querySelector('#id_longitud').value;
@@ -327,7 +326,6 @@ function updateSummary() {
 
     document.querySelector('#nomb_sim_res').textContent = nombreSimulacion;
     document.querySelector('#sector_res').textContent = sector;
-    document.querySelector('#aplicacion_res').textContent = aplicacion;
     //document.querySelector('#ubicacion_res').textContent = ubicacion;
     document.querySelector('#latitud_res').textContent = latitud;
     document.querySelector('#longitud_res').textContent = longitud;
