@@ -292,3 +292,35 @@ def results(request):
     #np.savez('Result2.npz', **Result)
 
     return render(request, 'results.html', {})
+
+
+# Detalle de una simulación
+@login_required
+def simulacion_detail(request, id):
+    profile = Profile.objects.get(user=request.user)
+    simulacion = get_object_or_404(Simulaciones, id_simulacion=id)
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    return render(request, 'simulacion_detail.html', {'simulacion': simulacion, 'profile': profile})
+
+# Eliminar una simulación
+@login_required
+def simulacion_delete(request, id):
+    simulacion = get_object_or_404(Simulaciones, id_simulacion=id)
+    if request.method == 'POST':
+        simulacion.delete()
+        messages.success(request, f'La simulación {simulacion.nombre_simulacion} ha sido eliminada correctamente')
+        return redirect('dashboard')
+    return render(request, 'simulacion_confirm_delete.html', {'simulacion': simulacion})
+
+# Actualizar una simulación
+@login_required
+def simulacion_update(request, id):
+    profile = Profile.objects.get(user=request.user)
+    simulacion = get_object_or_404(Simulaciones, id_simulacion=id)
+    form = SimForm(request.POST or None, instance=simulacion)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f'La simulación {simulacion.nombre_simulacion} ha sido actualizada correctamente')
+        return redirect('simulacion_detail', id=simulacion.id)
+    return render(request, 'simulacion_edit.html', {'form': form, 'simulacion': simulacion, 'profile': profile})

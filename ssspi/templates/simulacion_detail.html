@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Detalles de la simulación</h2>
+    <p><strong>Nombre:</strong> {{ simulacion.Simulacion.nombre_simulacion }}</p>
+    <p><strong>Fecha de creación:</strong> {{ simulacion.fecha_creacion }}</p>
+    <p><strong>Latitud:</strong> {{ simulacion.latitud }}</p>
+    <p><strong>Longitud:</strong> {{ simulacion.longitud }}</p>
+    <button type="button" class="btn waves-effect waves" href="{%  url 'dashboard' %}">Volver al Dashboard</button>
+</div>
+{% endblock %}

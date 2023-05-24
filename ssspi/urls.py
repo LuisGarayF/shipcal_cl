@@ -18,6 +18,9 @@ urlpatterns = [
     path('dashboard/',dashboardView, name='dashboard'),
     path('update_profile/', update_profile, name='update_profile'),
     path('results/', results, name='results'),
+    path('simulacion/<int:id>/', simulacion_detail, name='simulacion_detail'),
+    path('simulacion/<int:id>/delete/', simulacion_delete, name='simulacion_delete'),
+    path('simulacion/<int:id>/edit/', simulacion_update, name='simulacion_update'),
     #path('apiern/', views.apiern, name='apiern'),
 ]
 
