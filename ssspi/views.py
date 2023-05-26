@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from ssspi.forms import *
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseNotAllowed,FileResponse
 from django.core.mail import send_mail, BadHeaderError
 from ssspi.models import *
 from Simulacion.Run_Simulation import simulate_system
@@ -12,6 +12,8 @@ import json
 from django.contrib.auth.views import LogoutView
 from django.urls import reverse_lazy
 from django.core.serializers.json import DjangoJSONEncoder
+from django.views.static import serve
+from Simulacion.apiern import consultar_api
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -50,8 +52,20 @@ def register(request):
 @login_required
 def dashboardView(request):
     profile = Profile.objects.get(user=request.user)
-    simulaciones = Simulaciones.objects.filter(id_user=request.user).select_related('Simulacion')
+    simulaciones = FormSim.objects.filter(simulacion__id_user=request.user).select_related('simulacion')
     return render(request, 'dashboard.html', {'profile': profile, 'simulaciones': simulaciones})
+
+def descargar_archivo(request, simulacion_id):
+    consultar_api(ubicacion.latitud_personalizada, ubicacion.longitud_personalizada, simulacion_id)
+    
+    archivo_tmy = ArchivoTMY.objects.get(simulacion_id=simulacion_id)
+    archivo = archivo_tmy.archivo
+
+    ruta_archivo = archivo.path
+
+    response = FileResponse(open(ruta_archivo, 'rb'))
+
+    return response
 
 
 @login_required
@@ -139,6 +153,9 @@ def simulacion(request):
     esquema_list = Esquema.objects.all()
     
     
+
+    raw_results = {}
+    
     if request.method == 'POST':
         form = SimForm(request.POST, request.FILES)
         if form.is_valid():
@@ -150,27 +167,29 @@ def simulacion(request):
 
            # Si se ingresaron manualmente la latitud y longitud, se guardan en la ubicación personalizada
             if form.cleaned_data['latitud'] and form.cleaned_data['longitud']:
-                ubicacion.latitud_personalizada = form.cleaned_data['latitud']
-                ubicacion.longitud_personalizada = form.cleaned_data['longitud']
+                ubicacion.latitud_personalizada = float(form.cleaned_data['latitud'])
+                ubicacion.longitud_personalizada = float(form.cleaned_data['longitud'])
                 ubicacion.save()
+
 
                 # Crear un diccionario con los campos relevantes de la ubicación
                 ubicacion_data = {
-                    'latitud': str(ubicacion.latitud),
-                    'longitud': str(ubicacion.longitud),
+                    'latitud': ubicacion.latitud_personalizada,
+                    'longitud': ubicacion.longitud_personalizada,
                 }
-                #return json.dumps(ubicacion_data)
-                
 
-                # Agregar los atributos adicionales al diccionario
-                ubicacion_data['result'] = True
-            raw_results['ubicacion'] = ubicacion_data
-    
-
+            
             esquema = form.cleaned_data['esquema']
             siglas_esquema = form.cleaned_data['siglas_esquema']
             combustible = form.cleaned_data['combustible']
             demanda_anual = form.cleaned_data['demanda_anual']
+
+            # Si se ha ingresado la demanda anual, establecer ese valor para todos los campos de demanda mensuales
+            if demanda_anual:
+                demanda_enero = demanda_febrero = demanda_marzo = demanda_abril = demanda_mayo = demanda_junio = \
+                    demanda_julio = demanda_agosto = demanda_septiembre = demanda_octubre = demanda_noviembre = \
+                    demanda_diciembre = demanda_anual
+
             unidad_demanda = form.cleaned_data['unidad_demanda']
             ini_jornada = str(form.cleaned_data['ini_jornada'])
             term_jornada = str(form.cleaned_data['term_jornada'])
@@ -200,6 +219,13 @@ def simulacion(request):
             tipo_caldera = form.cleaned_data['tipo_caldera']
             eficiencia_caldera = form.cleaned_data['eficiencia_caldera']
             temperatura_retorno = form.cleaned_data['temperatura_retorno']
+
+            # Si se ha ingresado la demanda anual, establecer ese valor para todos los campos de demanda mensuales
+            if temperatura_retorno:
+                t_enero = t_febrero = t_marzo = t_abril = t_mayo = t_junio = \
+                    t_julio = t_agosto = t_septiembre = t_octubre = t_noviembre = \
+                    t_diciembre = temperatura_retorno
+
             t_enero = form.cleaned_data['t_enero']
             t_febrero = form.cleaned_data['t_febrero']
             t_marzo = form.cleaned_data['t_marzo']
@@ -213,15 +239,24 @@ def simulacion(request):
             t_noviembre = form.cleaned_data['t_noviembre']
             t_diciembre = form.cleaned_data['t_diciembre']
             t_salida = form.cleaned_data['t_salida']
+
             area_apertura = form.cleaned_data['area_apertura']
             eficiencia_optica = form.cleaned_data['eficiencia_optica']
             coef_per_lineales = form.cleaned_data['coef_per_lineales']
             coef_per_cuadraticas = form.cleaned_data['coef_per_cuadraticas']
             precio_colector = form.cleaned_data['precio_colector']
             cantidad_bat = form.cleaned_data['cantidad_bat']
-            total_colectores = form.cleaned_data['total_colectores']
             col_bat = form.cleaned_data['col_bat']
+
+            # Calcular el valor de sup_colectores
+            sup_colectores = round(area_apertura * col_bat * cantidad_bat * 1.3, 3)
+            
+            # Calcular el valor de total_colectores
+            total_colectores = col_bat * cantidad_bat
+
+            total_colectores = form.cleaned_data['total_colectores']
             sup_colectores = form.cleaned_data['sup_colectores']
+
             inclinacion_col = form.cleaned_data['inclinacion_col']
             azimut = form.cleaned_data['azimut']
             flujo_masico = form.cleaned_data['flujo_masico']
@@ -237,37 +272,125 @@ def simulacion(request):
             costo_combustible = form.cleaned_data['costo_combustible']
             unidad_costo_combustible = form.cleaned_data['unidad_costo_combustible']
             iam_longitudinal = form.cleaned_data['iam_longitudinal']
-            
-            
-            
-            raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,'shema': esquema, 'integration_scheme_initials': siglas_esquema,'sector':sector,
-                           'latitude': ubicacion_data['latitud'], 'longitude': ubicacion_data['longitud'], 'fuel_name': combustible, 'operation_start': ini_jornada, 'operation_end': term_jornada, 'yearly_demand': demanda_anual, 'yearly_demand_unit': unidad_demanda,
-                           'demand_monday': demanda_lun, 'demand_tuesday': demanda_mar, 'demand_wednesday': demanda_mie,
-                           'demand_thursday': demanda_jue, 'demand_friday': demanda_vie, 'demand_saturday': demanda_sab, 'demand_sunday':  demanda_dom, 'demand_january': demanda_enero,
-                           'demand_february': demanda_febrero, 'demand_march': demanda_marzo, 'demand_april': demanda_abril, 'demand_may': demanda_mayo, 'demand_june': demanda_junio,
-                           'demand_july': demanda_julio, 'demand_august': demanda_agosto, 'demand_september': demanda_septiembre, 'demand_october': demanda_octubre,
-                           'demand_november': demanda_noviembre, 'demand_december': demanda_diciembre, 'boiler_nominal_power': potencia_caldera,
-                           'boiler_nominal_power_units': unidad_potencia,  'boiler_pressure': presion_caldera, 'boiler_pressure_units': unidad_presion, 'boiler_type': tipo_caldera,
-                           'return_inlet_temperature': temperatura_retorno, 'temperature_january': t_enero,
-                           'temperature_february': t_febrero, 'temperature_march': t_marzo, 'temperature_april': t_abril, 'temperature_may': t_mayo, 'temperature_june': t_junio,
-                           'temperature_july': t_julio, 'temperature_august': t_agosto, 'temperature_september': t_septiembre, 'temperature_october': t_octubre,
-                           'temperature_november': t_noviembre, 'temperature_december': t_diciembre, 'outlet_temperature': t_salida, 'aperture_area': area_apertura,
-                           'coll_n0': eficiencia_optica, 'coll_a2': coef_per_lineales, 'coll_a1': coef_per_cuadraticas, 'coll_price': precio_colector,  'coll_rows': cantidad_bat,
-                           'total_collectors': total_colectores,  'colls_per_row': col_bat, 'field_land_area': sup_colectores, 'coll_tilt': inclinacion_col, 'coll_azimuth': azimut,
-                           'field_mass_flow': flujo_masico, 'field_mass_flow_units': unidad_flujo_masico, 'fluid': tipo_fluido, 'field_mass_flow_range': rango_flujo_prueba,
-                           'iam': iam,'longitudinal_iam': iam_longitudinal ,'tank_volume': volumen, 'tank_AR': relacion_aspecto, 'tank_material': material_almacenamiento, 'tank_isulation_material': material_aislamiento,
-                           'HX_eff': efectividad, 'fuel_cost': costo_combustible, 'fuel_cost_units': unidad_costo_combustible, 'boiler_efficiency': eficiencia_caldera}
+
+                
+            # Agregar los valores al diccionario raw_results con claves personalizadas
+            raw_results['sim_name'] = nombre_simulacion
+            raw_results['sector'] = sector
+            raw_results['latitude'] = ubicacion_data['latitud']
+            raw_results['longitude'] = ubicacion_data['longitud']
+            raw_results['shema'] = esquema
+            raw_results['integration_scheme_initials'] = siglas_esquema
+            raw_results['fuel_name'] = combustible
+            raw_results['operation_start'] = ini_jornada
+            raw_results['operation_end'] = term_jornada
+            raw_results['yearly_demand'] = demanda_anual
+            raw_results['yearly_demand_unit'] = unidad_demanda
+            raw_results['demand_monday'] = demanda_lun
+            raw_results['demand_tuesday'] = demanda_mar
+            raw_results['demand_wednesday'] = demanda_mie
+            raw_results['demand_thursday'] = demanda_jue
+            raw_results['demand_friday'] = demanda_vie
+            raw_results['demand_saturday'] = demanda_sab
+            raw_results['demand_sunday'] = demanda_dom
+            raw_results['demand_january'] = demanda_enero
+            raw_results['demand_february'] = demanda_febrero
+            raw_results['demand_march'] = demanda_marzo
+            raw_results['demand_april'] = demanda_abril
+            raw_results['demand_may'] = demanda_mayo
+            raw_results['demand_june'] = demanda_junio
+            raw_results['demand_july'] = demanda_julio
+            raw_results['demand_august'] = demanda_agosto
+            raw_results['demand_september'] = demanda_septiembre
+            raw_results['demand_october'] = demanda_octubre
+            raw_results['demand_november'] = demanda_noviembre
+            raw_results['demand_december'] = demanda_diciembre
+            raw_results['boiler_nominal_power'] = potencia_caldera
+            raw_results['boiler_nominal_power_units'] = unidad_potencia
+            raw_results['boiler_pressure'] = presion_caldera
+            raw_results['boiler_pressure_units'] = unidad_presion
+            raw_results['boiler_type'] = tipo_caldera
+            raw_results['return_inlet_temperature'] = temperatura_retorno
+            raw_results['temperature_january'] = t_enero
+            raw_results['temperature_february'] = t_febrero
+            raw_results['temperature_march'] = t_marzo
+            raw_results['temperature_april'] = t_abril
+            raw_results['temperature_may'] = t_mayo
+            raw_results['temperature_june'] = t_junio
+            raw_results['temperature_july'] = t_julio
+            raw_results['temperature_august'] = t_agosto
+            raw_results['temperature_september'] = t_septiembre
+            raw_results['temperature_october'] = t_octubre
+            raw_results['temperature_november'] = t_noviembre
+            raw_results['temperature_december'] = t_diciembre
+            raw_results['outlet_temperature'] = t_salida
+            raw_results['aperture_area'] = area_apertura
+            raw_results['coll_n0'] = eficiencia_optica
+            raw_results['coll_a2'] = coef_per_lineales
+            raw_results['coll_a1'] = coef_per_cuadraticas
+            raw_results['coll_price'] = precio_colector
+            raw_results['coll_rows'] = cantidad_bat
+            raw_results['total_collectors'] = total_colectores
+            raw_results['colls_per_row'] = col_bat
+            raw_results['field_land_area'] = sup_colectores
+            raw_results['coll_tilt'] = inclinacion_col
+            raw_results['coll_azimuth'] = azimut
+            raw_results['field_mass_flow'] = flujo_masico
+            raw_results['field_mass_flow_units'] = unidad_flujo_masico
+            raw_results['fluid'] = tipo_fluido
+            raw_results['field_mass_flow_range'] = rango_flujo_prueba
+            raw_results['iam'] = iam
+            raw_results['longitudinal_iam'] = iam_longitudinal
+            raw_results['tank_volume'] = volumen
+            raw_results['tank_AR'] = relacion_aspecto
+            raw_results['tank_material'] = material_almacenamiento
+            raw_results['tank_isulation_material'] = material_aislamiento
+            raw_results['HX_eff'] = efectividad
+            raw_results['fuel_cost'] = costo_combustible
+            raw_results['fuel_cost_units'] = unidad_costo_combustible
+            raw_results['boiler_efficiency'] = eficiencia_caldera
 
 
-            raw_results_json = json.dumps(raw_results, cls=DjangoJSONEncoder)
+    
+
+            
+            
+            
+            
+            #raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,'shema': esquema, 'integration_scheme_initials': siglas_esquema,'sector':sector,
+            #                'latitude': ubicacion_data['latitud'], 'longitude': ubicacion_data['longitud'], 'fuel_name': combustible, 'operation_start': ini_jornada, 'operation_end': term_jornada, 'yearly_demand': demanda_anual, 'yearly_demand_unit': unidad_demanda,
+            #                'demand_monday': demanda_lun, 'demand_tuesday': demanda_mar, 'demand_wednesday': demanda_mie,
+            #                'demand_thursday': demanda_jue, 'demand_friday': demanda_vie, 'demand_saturday': demanda_sab, 'demand_sunday':  demanda_dom, 'demand_january': demanda_enero,
+            #                'demand_february': demanda_febrero, 'demand_march': demanda_marzo, 'demand_april': demanda_abril, 'demand_may': demanda_mayo, 'demand_june': demanda_junio,
+            #                'demand_july': demanda_julio, 'demand_august': demanda_agosto, 'demand_september': demanda_septiembre, 'demand_october': demanda_octubre,
+            #                'demand_november': demanda_noviembre, 'demand_december': demanda_diciembre, 'boiler_nominal_power': potencia_caldera,
+            #                'boiler_nominal_power_units': unidad_potencia,  'boiler_pressure': presion_caldera, 'boiler_pressure_units': unidad_presion, 'boiler_type': tipo_caldera,
+            #                'return_inlet_temperature': temperatura_retorno, 'temperature_january': t_enero,
+            #                'temperature_february': t_febrero, 'temperature_march': t_marzo, 'temperature_april': t_abril, 'temperature_may': t_mayo, 'temperature_june': t_junio,
+            #                'temperature_july': t_julio, 'temperature_august': t_agosto, 'temperature_september': t_septiembre, 'temperature_october': t_octubre,
+            #                'temperature_november': t_noviembre, 'temperature_december': t_diciembre, 'outlet_temperature': t_salida, 'aperture_area': area_apertura,
+            #                'coll_n0': eficiencia_optica, 'coll_a2': coef_per_lineales, 'coll_a1': coef_per_cuadraticas, 'coll_price': precio_colector,  'coll_rows': cantidad_bat,
+            #                'total_collectors': total_colectores,  'colls_per_row': col_bat, 'field_land_area': sup_colectores, 'coll_tilt': inclinacion_col, 'coll_azimuth': azimut,
+            #                'field_mass_flow': flujo_masico, 'field_mass_flow_units': unidad_flujo_masico, 'fluid': tipo_fluido, 'field_mass_flow_range': rango_flujo_prueba,
+            #                'iam': iam,'longitudinal_iam': iam_longitudinal ,'tank_volume': volumen, 'tank_AR': relacion_aspecto, 'tank_material': material_almacenamiento, 'tank_isulation_material': material_aislamiento,
+            #                'HX_eff': efectividad, 'fuel_cost': costo_combustible, 'fuel_cost_units': unidad_costo_combustible, 'boiler_efficiency': eficiencia_caldera}
+
+
+            #raw_results_json = json.dumps(raw_results, cls=DjangoJSONEncoder)
             
             # Crea y guarda una instancia de Simulaciones asociada al usuario autenticado
-            simulacion = Simulaciones(id_user=request.user, resultado= raw_results_json)
+            simulacion = Simulaciones(id_user=request.user, resultado= raw_results)
             simulacion.save()
             messages.success(request, f'La simulación {nombre_simulacion} ha sido creada correctamente')
 
+            simulacion_id = simulacion.id
+
+            consultar_api(ubicacion.latitud_personalizada, ubicacion.longitud_personalizada, simulacion_id)
+
+
+
             # Llama a la función simulate_system con los datos
-            Result = simulate_system( raw_results_json)
+            Result = simulate_system( raw_results)
 
             return render(request, 'results.html', {})
         else:
@@ -298,29 +421,27 @@ def results(request):
 @login_required
 def simulacion_detail(request, id):
     profile = Profile.objects.get(user=request.user)
-    simulacion = get_object_or_404(Simulaciones, id_simulacion=id)
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    return render(request, 'simulacion_detail.html', {'simulacion': simulacion, 'profile': profile})
+    form_sim = get_object_or_404(FormSim, id=id)
+    return render(request, 'simulacion_detail.html', {'simulacion': form_sim.simulacion, 'profile': profile})
 
-# Eliminar una simulación
 @login_required
 def simulacion_delete(request, id):
-    simulacion = get_object_or_404(Simulaciones, id_simulacion=id)
+    form_sim = get_object_or_404(FormSim, id=id)
     if request.method == 'POST':
-        simulacion.delete()
-        messages.success(request, f'La simulación {simulacion.nombre_simulacion} ha sido eliminada correctamente')
+        form_sim.delete()
+        #messages.success(request, f'La simulación {simulacion.nombre_simulacion} ha sido eliminada correctamente')
         return redirect('dashboard')
-    return render(request, 'simulacion_confirm_delete.html', {'simulacion': simulacion})
+    else:
+        return HttpResponseNotAllowed(['POST'])  # Solo se aceptan solicitudes POST
 
 # Actualizar una simulación
 @login_required
 def simulacion_update(request, id):
     profile = Profile.objects.get(user=request.user)
-    simulacion = get_object_or_404(Simulaciones, id_simulacion=id)
-    form = SimForm(request.POST or None, instance=simulacion)
+    form_sim = get_object_or_404(FormSim, id=id)
+    form = SimForm(request.POST or None, instance=form_sim.simulacion)
     if form.is_valid():
         form.save()
-        messages.success(request, f'La simulación {simulacion.nombre_simulacion} ha sido actualizada correctamente')
-        return redirect('simulacion_detail', id=simulacion.id)
-    return render(request, 'simulacion_edit.html', {'form': form, 'simulacion': simulacion, 'profile': profile})
+        #messages.success(request, f'La simulación {simulacion.nombre_simulacion} ha sido actualizada correctamente')
+        return redirect('simulacion_detail', id=form_sim.id)
+    return render(request, 'simulacion_update.html', {'form': form, 'simulacion': form_sim.simulacion, 'profile': profile})

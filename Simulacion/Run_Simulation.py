@@ -15,6 +15,9 @@ from pvlib.solarposition import get_solarposition
 import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def Solar_HX_Tank(Field, HX, Tank, T_set, Boiler_type, boiler_nominal_power,

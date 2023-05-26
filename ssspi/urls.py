@@ -7,6 +7,7 @@ from django.conf.urls.static import static
 from .views import CustomLogoutView
 
 
+
 urlpatterns = [
     path('',index,name='index'),
     path('simulacion/',simulacion,name='simulacion'),
@@ -21,7 +22,7 @@ urlpatterns = [
     path('simulacion/<int:id>/', simulacion_detail, name='simulacion_detail'),
     path('simulacion/<int:id>/delete/', simulacion_delete, name='simulacion_delete'),
     path('simulacion/<int:id>/edit/', simulacion_update, name='simulacion_update'),
-    #path('apiern/', views.apiern, name='apiern'),
+    path('simulacion/<int:simulacion_id>/descargar/', descargar_archivo, name='descargar_archivo')
 ]
 
 if settings.DEBUG:

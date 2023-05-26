@@ -326,6 +326,13 @@ class Unidad_Costo_Combustible(models.Model):
 
     def __str__(self):
         return f'{self.unidad_costo_combustible}'
+
+class ArchivoTMY(models.Model):
+    simulacion = models.ForeignKey('Simulaciones', on_delete=models.CASCADE)
+    archivo = models.FileField(upload_to='TMY_Simulaciones/')
+
+    def __str__(self):
+        return self.archivo.name
     
 
 # Dashboard
@@ -341,6 +348,7 @@ class Simulaciones(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_ultima_modificacion = models.DateTimeField(auto_now=True)
     resultado = models.TextField(verbose_name='Resultado', blank=True)
+    archivo_tmy = models.ForeignKey(ArchivoTMY, verbose_name='TMY', on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         verbose_name_plural = 'Simulaciones'
