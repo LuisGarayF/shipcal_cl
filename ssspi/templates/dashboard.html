@@ -92,28 +92,15 @@
                 </div>
             </div>
         </div>
-        <!--<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="deleteModalLabel">Eliminar simulación</h5>
-                        <button type="button" class="btn btn-secondary close modal-close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
+        {% if messages %}
+            <div class="row">
+                {% for message in messages %}
+                    <div {% if message.tags %} class="alert alert-{{ message.tags }}" {% endif %}>
+                        {{ message }}
                     </div>
-                    <div class="modal-body">
-                        ¿Estás seguro de que quieres eliminar esta simulación?
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary modal-close" data-dismiss="modal">Cancelar</button>
-                        <form method="post" action="" id="deleteForm">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-danger">Eliminar</button>
-                        </form>
-                    </div>
-                </div>
+                {% endfor %}
             </div>
-        </div>-->
+        {% endif %}
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

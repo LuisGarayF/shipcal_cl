@@ -56,9 +56,19 @@ def dashboardView(request):
     return render(request, 'dashboard.html', {'profile': profile, 'simulaciones': simulaciones})
 
 def descargar_archivo(request, simulacion_id):
+    
+    simulacion = Simulaciones.objects.get(id=simulacion_id)
+    ubicacion = simulacion.ubicacion    
     consultar_api(ubicacion.latitud_personalizada, ubicacion.longitud_personalizada, simulacion_id)
     
-    archivo_tmy = ArchivoTMY.objects.get(simulacion_id=simulacion_id)
+    try:
+
+        archivo_tmy = ArchivoTMY.objects.get(simulacion_id=simulacion_id)
+    
+    except ArchivoTMY.DoesNotExist:
+        messages.error(request, 'El archivo no se encuentra en la base de datos.')
+        return redirect('dashboard')
+    
     archivo = archivo_tmy.archivo
 
     ruta_archivo = archivo.path
@@ -351,46 +361,19 @@ def simulacion(request):
             raw_results['boiler_efficiency'] = eficiencia_caldera
 
 
-    
-
-            
-            
-            
-            
-            #raw_results = {'sim_name': nombre_simulacion, 'location': nombre_ubicacion,'shema': esquema, 'integration_scheme_initials': siglas_esquema,'sector':sector,
-            #                'latitude': ubicacion_data['latitud'], 'longitude': ubicacion_data['longitud'], 'fuel_name': combustible, 'operation_start': ini_jornada, 'operation_end': term_jornada, 'yearly_demand': demanda_anual, 'yearly_demand_unit': unidad_demanda,
-            #                'demand_monday': demanda_lun, 'demand_tuesday': demanda_mar, 'demand_wednesday': demanda_mie,
-            #                'demand_thursday': demanda_jue, 'demand_friday': demanda_vie, 'demand_saturday': demanda_sab, 'demand_sunday':  demanda_dom, 'demand_january': demanda_enero,
-            #                'demand_february': demanda_febrero, 'demand_march': demanda_marzo, 'demand_april': demanda_abril, 'demand_may': demanda_mayo, 'demand_june': demanda_junio,
-            #                'demand_july': demanda_julio, 'demand_august': demanda_agosto, 'demand_september': demanda_septiembre, 'demand_october': demanda_octubre,
-            #                'demand_november': demanda_noviembre, 'demand_december': demanda_diciembre, 'boiler_nominal_power': potencia_caldera,
-            #                'boiler_nominal_power_units': unidad_potencia,  'boiler_pressure': presion_caldera, 'boiler_pressure_units': unidad_presion, 'boiler_type': tipo_caldera,
-            #                'return_inlet_temperature': temperatura_retorno, 'temperature_january': t_enero,
-            #                'temperature_february': t_febrero, 'temperature_march': t_marzo, 'temperature_april': t_abril, 'temperature_may': t_mayo, 'temperature_june': t_junio,
-            #                'temperature_july': t_julio, 'temperature_august': t_agosto, 'temperature_september': t_septiembre, 'temperature_october': t_octubre,
-            #                'temperature_november': t_noviembre, 'temperature_december': t_diciembre, 'outlet_temperature': t_salida, 'aperture_area': area_apertura,
-            #                'coll_n0': eficiencia_optica, 'coll_a2': coef_per_lineales, 'coll_a1': coef_per_cuadraticas, 'coll_price': precio_colector,  'coll_rows': cantidad_bat,
-            #                'total_collectors': total_colectores,  'colls_per_row': col_bat, 'field_land_area': sup_colectores, 'coll_tilt': inclinacion_col, 'coll_azimuth': azimut,
-            #                'field_mass_flow': flujo_masico, 'field_mass_flow_units': unidad_flujo_masico, 'fluid': tipo_fluido, 'field_mass_flow_range': rango_flujo_prueba,
-            #                'iam': iam,'longitudinal_iam': iam_longitudinal ,'tank_volume': volumen, 'tank_AR': relacion_aspecto, 'tank_material': material_almacenamiento, 'tank_isulation_material': material_aislamiento,
-            #                'HX_eff': efectividad, 'fuel_cost': costo_combustible, 'fuel_cost_units': unidad_costo_combustible, 'boiler_efficiency': eficiencia_caldera}
-
-
-            #raw_results_json = json.dumps(raw_results, cls=DjangoJSONEncoder)
-            
             # Crea y guarda una instancia de Simulaciones asociada al usuario autenticado
             simulacion = Simulaciones(id_user=request.user, resultado= raw_results)
             simulacion.save()
             messages.success(request, f'La simulación {nombre_simulacion} ha sido creada correctamente')
 
-            simulacion_id = simulacion.id
+            simulacion_id = simulacion.id_simulacion
 
             consultar_api(ubicacion.latitud_personalizada, ubicacion.longitud_personalizada, simulacion_id)
 
 
 
             # Llama a la función simulate_system con los datos
-            Result = simulate_system( raw_results)
+            Result = simulate_system(raw_results, simulacion_id)
 
             return render(request, 'results.html', {})
         else:

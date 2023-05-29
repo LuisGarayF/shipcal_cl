@@ -3,8 +3,10 @@ import json
 from json.decoder import JSONDecodeError
 import wget
 import os
-from ssspi.models import Simulaciones, ArchivoTMY
+from ssspi.models import Simulaciones, ArchivoTMY, ContadorSimulacion
 from django.core.files import File
+from django.db import transaction
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -72,15 +74,26 @@ def consultar_api(latitud, longitud, simulacion_id):
 
     response_url = response_dict.get('url')
 
-    archivo_ruta = os.path.join(BASE_DIR, 'TMY_Simulaciones')
-    os.makedirs(archivo_ruta, exist_ok=True)
+# Iniciar una transacción y bloquear el contador para la actualización
+    with transaction.atomic():
+        if not ContadorSimulacion.objects.filter(pk=1).exists():
+            contador = ContadorSimulacion.objects.create(pk=1, ultima_simulacion=0)
+        else:
+            contador = ContadorSimulacion.objects.select_for_update().get(pk=1)
+        contador.ultima_simulacion += 1
+        contador.save()
 
-    nombre_archivo = f'TMY-SIM-{simulacion_id}.csv'
-    archivo_ruta = os.path.join(archivo_ruta, nombre_archivo)
+        archivo_ruta = os.path.join(BASE_DIR, 'TMY_Simulaciones')
+        os.makedirs(archivo_ruta, exist_ok=True)
 
+        # Usando el contador para el nombre del archivo
+        nombre_archivo = f'TMY-SIM-{contador.ultima_simulacion}.csv'
+        archivo_ruta = os.path.join(archivo_ruta, nombre_archivo)
+
+    # Continúa con la descarga del archivo y su almacenamiento en la base de datos
     wget.download(response_url, archivo_ruta)
 
-    simulacion = FormSim.objects.get(id=simulacion_id)
+    simulacion = Simulaciones.objects.get(id_simulacion=simulacion_id)
     archivo_tmy = ArchivoTMY(simulacion=simulacion)
 
     with open(archivo_ruta, 'rb') as archivo:

@@ -337,6 +337,9 @@ class ArchivoTMY(models.Model):
 
 # Dashboard
 
+class ContadorSimulacion(models.Model):
+    ultima_simulacion = models.IntegerField(default=0)
+
 class Simulaciones(models.Model):
     id_simulacion = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     id_user = models.ForeignKey(
