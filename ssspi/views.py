@@ -373,7 +373,7 @@ def simulacion(request):
 
 
             # Llama a la función simulate_system con los datos
-            Result = simulate_system(raw_results, simulacion_id)
+            Result = simulate_system(raw_results, simulacion_id, ubicacion.latitud_personalizada, ubicacion.longitud_personalizada)
 
             return render(request, 'results.html', {})
         else:

@@ -78,8 +78,10 @@ def consultar_api(latitud, longitud, simulacion_id):
     with transaction.atomic():
         if not ContadorSimulacion.objects.filter(pk=1).exists():
             contador = ContadorSimulacion.objects.create(pk=1, ultima_simulacion=0)
+            print(f'No existe {contador}')
         else:
             contador = ContadorSimulacion.objects.select_for_update().get(pk=1)
+            print(f'Existe {contador}')
         contador.ultima_simulacion += 1
         contador.save()
 

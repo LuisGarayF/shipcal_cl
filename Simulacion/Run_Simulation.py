@@ -16,7 +16,8 @@ import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
 import os
-from ssspi.models import Simulaciones
+from ssspi.models import Simulaciones, Ubicacion
+from Simulacion.apiern import consultar_api
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -1996,31 +1997,27 @@ def NS_L_CA_MU(Field, Tank, HX, T_set, boiler_nominal_power,
     
     return Result
 
-def simulate_system(system_params,simulacion_id, time_step = 0.1, tolerance = 1e-6, max_iterations = 100):
-    
-    # TMY_file_name = system_params['TMY_file_name']
-    # if not TMY_file_name[len(TMY_file_name)-4:] == '.csv':
-    #     TMY_file_name = TMY_file_name + '.csv'
-    # latitude, longitude, weather_data = corr_exp_solar(TMY_file_name)
-    # year_list, DNI, GHI, DHI, temp = extract_weather_data(weather_data)
-    # Obtén la instancia de simulación
-
+def simulate_system(system_params, simulacion_id,latitud, longitud, time_step = 0.1, tolerance = 1e-6, max_iterations = 100):
     simulacion = Simulaciones.objects.get(id_simulacion=simulacion_id)
 
-    # Asegúrate de que el archivo TMY asociado existe
-    if simulacion.archivo_tmy:
-        # Usa el nombre de archivo en la simulación
-        TMY_file_name = simulacion.archivo_tmy.archivo.name
-
-        # Continúa con el resto de tu código
-        if not TMY_file_name[len(TMY_file_name)-4:] == '.csv':
-            TMY_file_name = TMY_file_name + '.csv'
-        latitude, longitude, weather_data = corr_exp_solar(TMY_file_name)
-        year_list, DNI, GHI, DHI, temp = extract_weather_data(weather_data)
-    else:
-        # Trata el caso en que el archivo TMY asociado no exista
+    # Si no hay un archivo TMY asociado, entonces crea uno mediante coonsutar_api
+    if simulacion.archivo_tmy is None:
         print("No existe un archivo TMY asociado con la simulación.")
-    
+        consultar_api(latitud, longitud,simulacion_id)
+
+        simulacion = Simulaciones.objects.get(id_simulacion=simulacion_id)
+
+    if simulacion.archivo_tmy is None:
+        print("La creación del archivo TMY falló.")
+        return  
+
+    TMY_file_name = simulacion.archivo_tmy.archivo.name
+
+    if not TMY_file_name[len(TMY_file_name)-4:] == '.csv':
+        TMY_file_name = TMY_file_name + '.csv'
+    latitude, longitude, weather_data = corr_exp_solar(TMY_file_name)
+    year_list, DNI, GHI, DHI, temp = extract_weather_data(weather_data)
+
     albedo = 0.25
     sky_diff = 0.5*( 1 + cos(system_params['coll_tilt']*pi/180) )*np.array(DHI)
     ground_diff = 0.5*albedo*( 1 - cos(system_params['coll_tilt']*pi/180) )*np.array(GHI)
